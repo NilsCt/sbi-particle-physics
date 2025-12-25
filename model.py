@@ -18,7 +18,8 @@ class Model:
         self.normalizer = None
         self.neural_network = None
         self.posterior = None
-        self.point_dim = 4
+        self.raw_point_dim = 4
+        self.encoded_point_dim = 5
         self.parameter_dim = 1
         self.data_labels = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
         self.parameters_labels = ["$C_9$"]
@@ -32,7 +33,7 @@ class Model:
         self.prior = BoxUniform(low=raw_low, high=raw_high, device=self.device)
 
     def set_simulator(self, stride, pre_N, preruns):
-        self.simulator = Simulator(self.device, stride, pre_N, preruns, self.rng, self.point_dim, self.parameter_dim)
+        self.simulator = Simulator(self.device, stride, pre_N, preruns, self.rng, self.raw_point_dim, self.parameter_dim)
 
     def set_normalizer(self, raw_data, raw_parameters):
         self.normalizer = Normalizer(raw_data, raw_parameters)
@@ -41,7 +42,7 @@ class Model:
               aggregated_num_layers, aggregated_num_hiddens, aggregated_output_dim,
               nsf_hidden_features, nsf_num_transforms, nsf_num_bins): 
         single_trial_net = FCEmbedding(
-            input_dim=self.point_dim,
+            input_dim=self.encoded_point_dim,
             num_layers=trial_num_layers,
             num_hiddens=trial_num_hiddens,
             output_dim=trial_embedding_dim

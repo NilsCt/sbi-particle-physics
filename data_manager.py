@@ -54,7 +54,7 @@ class DataManager:
         return raw_data, raw_parameters, n_samples, metadata
     
     @staticmethod
-    def load_data_and_init(directory_path, point_dim=None):
+    def load_data_and_init(directory_path):
         raw_data, raw_parameters, n_samples, metadata = DataManager.load_data(directory_path)
         n_points = metadata['n_points']
 
@@ -78,7 +78,6 @@ class DataManager:
         data = model.normalizer.normalize_data(raw_data)
         parameters = model.normalizer.normalize_parameters(raw_parameters)
 
-        if point_dim is not None: model.point_dim = point_dim
         model.build_default() 
 
         return model, data, parameters, n_samples, n_points, raw_data, raw_parameters
