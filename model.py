@@ -5,6 +5,7 @@ from sbi.inference import NPE
 from sbi.neural_nets import posterior_nn
 from simulator import Simulator
 from normalizer import Normalizer
+from sbi.neural_nets.embedding_nets import FCEmbedding, PermutationInvariantEmbedding
 
 class Model:
     # Object containing everything we need
@@ -15,7 +16,6 @@ class Model:
         self.prior = None
         self.simulator = None
         self.normalizer = None
-        #self.encoder = None
         self.neural_network = None
         self.posterior = None
         self.point_dim = 4
@@ -23,11 +23,6 @@ class Model:
         self.data_labels = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
         self.parameters_labels = ["$C_9$"]
 
-        # Configuration du réseau de neurones (peut être modifiée avant set_prior)
-        self.nsf_hidden_features = 128
-        self.nsf_num_transforms = 10
-        self.nsf_num_bins = 20
-        self.encoder_output_dim = 64
 
     def to_tensor(self, x, dtype=torch.float32):
         return torch.as_tensor(x, dtype=dtype, device=self.device)
@@ -42,8 +37,50 @@ class Model:
     def set_normalizer(self, raw_data, raw_parameters):
         self.normalizer = Normalizer(raw_data, raw_parameters)
 
-    def build(self, phi_hidden_dims, rho_hidden_dims, output_dim): 
-        self.neural_network = NPE(prior=self.prior, device=self.device, density_estimator="nsf")
+    def build(self, trial_num_layers, trial_num_hiddens, trial_embedding_dim, 
+              aggregated_num_layers, aggregated_num_hiddens, aggregated_output_dim,
+              nsf_hidden_features, nsf_num_transforms, nsf_num_bins): 
+        single_trial_net = FCEmbedding(
+            input_dim=self.point_dim,
+            num_layers=trial_num_layers,
+            num_hiddens=trial_num_hiddens,
+            output_dim=trial_embedding_dim
+        )
+
+        embedding_net = PermutationInvariantEmbedding(
+            trial_net=single_trial_net,
+            trial_net_output_dim=trial_embedding_dim,
+            num_layers=aggregated_num_layers,
+            num_hiddens=aggregated_num_hiddens,
+            output_dim=aggregated_output_dim
+        )
+
+        density_estimator = posterior_nn(
+            model='nsf',
+            hidden_features=nsf_hidden_features,
+            num_transforms=nsf_num_transforms,
+            num_bins=nsf_num_bins,
+            embedding_net=embedding_net,
+            z_score_x='none'  # Important : no normmalization since I already do that
+        )
+
+        self.neural_network = NPE(
+            prior=self.prior,
+            device=self.device,
+            density_estimator=density_estimator
+        )
+
+    def build_default(self):
+        self.build(
+            trial_num_layers=2,
+            trial_num_hiddens=64,
+            trial_embedding_dim=64,
+            aggregated_num_layers=2,
+            aggregated_num_hiddens=64,
+            aggregated_output_dim=128,
+            nsf_hidden_features=128, 
+            nsf_num_transforms=10,
+            nsf_num_bins=8)
 
     def draw_raw_parameters_from_prior(self, n_parameters):
         return self.prior.sample((n_parameters,))
@@ -61,15 +98,15 @@ class Model:
         raw_data = self.simulator.simulate_samples(raw_parameters, n_points)
         return self.normalizer.normalize_data(raw_data)
 
-    def train(self, data, parameters):
-        self.neural_network.append_simulations(parameters, data) # self.neural_network = ... ?
+    def train(self, data, parameters):  
+        self.neural_network.append_simulations(parameters, data)
         self.neural_network.train(stop_after_epochs=self.stop_after_epochs)
         self.posterior = self.neural_network.build_posterior(sample_with='mcmc')
 
     # draw parameters from the posterior predicted for some observed sample
     def draw_parameters_from_predicted_posterior(self, observed_sample, n_parameters):
-        if len(observed_sample.shape) == 2:  # If shape is (n_points, point_dim)
-          observed_sample = observed_sample.unsqueeze(0)
+        if len(observed_sample.shape) == 2:  # (n_points, point_dim)
+            observed_sample = observed_sample.unsqueeze(0)  # -> (1, n_points, point_dim)
         return self.posterior.sample((n_parameters,), x=observed_sample)
 
     # used to compare an observed sample with samples produced with parameters drawn from the posterior distribution predicted for the observed sample
