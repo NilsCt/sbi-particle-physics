@@ -7,7 +7,9 @@ class Ploter:
     # make cool plots and test the performance 
     axis_fontsize = 21 # companion object variables
     legend_fontsize = 15
-    tick_fontsize = 15        
+    tick_fontsize = 15     
+    data_labels = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
+    parameters_labels = ["$C_9$"]   
 
     @staticmethod
     def plot_a_sample_1D(sample, parameter, label):
@@ -27,8 +29,8 @@ class Ploter:
         plt.show()
 
     @staticmethod
-    def plot_a_sample(model, sample, parameter):
-        for i,label in enumerate(model.data_labels):
+    def plot_a_sample(sample, parameter):
+        for i,label in enumerate(Ploter.data_labels):
             Ploter.plot_a_sample_1D(sample[:,i], parameter, label)
 
     # plot train and validation loss during last training
@@ -60,8 +62,8 @@ class Ploter:
         plt.show()
 
     @staticmethod
-    def plot_a_posterior(model, sampled_parameters, true_value):
-        for i,label in enumerate(model.parameters_labels):
+    def plot_a_posterior(sampled_parameters, true_value):
+        for i,label in enumerate(Ploter.parameters_labels):
             Ploter.plot_a_posterior_parameter(sampled_parameters[:,i], label, true_value[i])
 
     
@@ -95,13 +97,11 @@ class Ploter:
     @staticmethod
     def plot_similar_data(model, observed_sample, n_samples, n_points):
         similar_data, similar_parameters = model.simulate_data_from_predicted_posterior(observed_sample, n_samples, n_points)
-        print("similar shape", similar_data.shape)
-        print("observed shape", observed_sample.shape)
-        for i,label in enumerate(model.data_labels):
+        for i,label in enumerate(Ploter.data_labels):
             Ploter.plot_similar_data_1D(observed_sample[:,i], similar_data[:,:,i], label)
 
     @staticmethod
-    def compare_distributions(model, samples_list, parameters_list, n_samples_to_plot=5):
+    def compare_distributions(samples_list, parameters_list, n_samples_to_plot=5):
         # Select indices to compare (evenly spaced across parameter range)
         n_total = len(parameters_list)
         if n_samples_to_plot > n_total:
@@ -119,7 +119,7 @@ class Ploter:
         fig, axes = plt.subplots(2, 2, figsize=(14, 10))
         axes = axes.flatten()
 
-        for obs_idx, label in enumerate(model.data_labels):
+        for obs_idx, label in enumerate(Ploter.data_labels):
             ax = axes[obs_idx]
 
             for i, sample_idx in enumerate(selected_indices):
@@ -143,9 +143,3 @@ class Ploter:
 
         plt.tight_layout()
         plt.show()
-
-    @staticmethod
-    def do_sbc(model):
-        pass# todo
-
-    # todo do ppc, hdi and more tests

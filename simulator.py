@@ -7,14 +7,17 @@ import logging
 
 class Simulator:
     # the simulator deals with un-normalized data (raw)
-    def __init__(self, device, stride, pre_N, preruns, rng, point_dim, parameter_dim):
+
+    raw_point_dim = 4
+    encoded_point_dim = 5
+    parameter_dim = 1
+
+    def __init__(self, device, rng, stride, pre_N, preruns):
         self.device = device
         self.stride = stride
         self.pre_N = pre_N
         self.preruns = preruns
         self.rng = rng
-        self.point_dim = point_dim
-        self.parameter_dim = parameter_dim
 
         self.eos_kinematics = eos.Kinematics({
             's':             2.0,   's_min':             1,       's_max' :            8.0,
@@ -62,7 +65,7 @@ class Simulator:
 
     def simulate_samples(self, raw_parameters, n_points):
         n_samples = raw_parameters.shape[0]
-        raw_data = torch.zeros((n_samples, n_points, self.point_dim), dtype=torch.float32, device=self.device)
+        raw_data = torch.zeros((n_samples, n_points, Simulator.raw_point_dim), dtype=torch.float32, device=self.device)
         for i, raw_parameter in enumerate(tqdm(raw_parameters, desc="Simulating samples", leave=True)):
             raw_data[i] = self.simulate_a_sample(raw_parameter, n_points)
         return raw_data

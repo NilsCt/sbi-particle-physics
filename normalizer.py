@@ -3,6 +3,7 @@ import numpy as np
 
 class Normalizer:
     # Normalize data and use suitable transformations if needed
+
     def __init__(self, raw_data, raw_parameters):
         formated_data = Normalizer.format_phi(raw_data)
         self.data_mean = formated_data.mean(dim=(0,1)) # shape (point_dim) (on ne mélange pas q^2, cos theta_d,...)
@@ -15,7 +16,7 @@ class Normalizer:
         self.parameters_mean = 0 # commun de ne pas normaliser les paramètres
         self.parameters_std = 1
  
-    def normalize_parameters(self, raw_parameters):
+    def normalize_parameters(self, raw_parameters): # j'ai laissé les fonctions au cas ou plus tard j'en ai besoin
         return (raw_parameters - self.parameters_mean) / self.parameters_std
 
     def denormalize_parameters(self, parameters):

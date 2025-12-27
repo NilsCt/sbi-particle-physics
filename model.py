@@ -6,25 +6,19 @@ from sbi.neural_nets import posterior_nn
 from simulator import Simulator
 from normalizer import Normalizer
 from sbi.neural_nets.embedding_nets import FCEmbedding, PermutationInvariantEmbedding
-import pickle
 
 class Model:
     # Object containing everything we need
-    def __init__(self, device, seed, stop_after_epochs):
+
+    def __init__(self, device, seed=None):
         self.device = device
+        if seed is None: seed = np.random.randint(0, 10000)
         self.rng = np.random.mtrand.RandomState(seed)
-        self.stop_after_epochs = stop_after_epochs # souvent 20
         self.prior = None
         self.simulator = None
         self.normalizer = None
         self.neural_network = None
         self.posterior = None
-        self.raw_point_dim = 4
-        self.encoded_point_dim = 5
-        self.parameter_dim = 1
-        self.data_labels = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
-        self.parameters_labels = ["$C_9$"]
-
 
     def to_tensor(self, x, dtype=torch.float32):
         return torch.as_tensor(x, dtype=dtype, device=self.device)
@@ -34,16 +28,18 @@ class Model:
         self.prior = BoxUniform(low=raw_low, high=raw_high, device=self.device)
 
     def set_simulator(self, stride, pre_N, preruns):
-        self.simulator = Simulator(self.device, stride, pre_N, preruns, self.rng, self.raw_point_dim, self.parameter_dim)
+        self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns)
 
     def set_normalizer(self, raw_data, raw_parameters):
         self.normalizer = Normalizer(raw_data, raw_parameters)
 
+
     def build(self, trial_num_layers, trial_num_hiddens, trial_embedding_dim, 
               aggregated_num_layers, aggregated_num_hiddens, aggregated_output_dim,
               nsf_hidden_features, nsf_num_transforms, nsf_num_bins): 
+        
         single_trial_net = FCEmbedding(
-            input_dim=self.encoded_point_dim,
+            input_dim=Simulator.encoded_point_dim,
             num_layers=trial_num_layers,
             num_hiddens=trial_num_hiddens,
             output_dim=trial_embedding_dim
@@ -63,7 +59,7 @@ class Model:
             num_transforms=nsf_num_transforms,
             num_bins=nsf_num_bins,
             embedding_net=embedding_net,
-            z_score_x='none'  # Important : no normmalization since I already do that
+            z_score_x='none'  # Important : no normalization since I already do that
         )
 
         self.neural_network = NPE(
@@ -71,6 +67,7 @@ class Model:
             device=self.device,
             density_estimator=density_estimator
         )
+
 
     def build_default(self):
         self.build(
@@ -100,9 +97,9 @@ class Model:
         raw_data = self.simulator.simulate_samples(raw_parameters, n_points)
         return self.normalizer.normalize_data(raw_data)
 
-    def train(self, data, parameters):  
+    def train(self, data, parameters, stop_after_epochs):  
         self.neural_network.append_simulations(parameters, data)
-        self.neural_network.train(stop_after_epochs=self.stop_after_epochs)
+        self.neural_network.train(stop_after_epochs=stop_after_epochs)
         self.posterior = self.neural_network.build_posterior(sample_with='mcmc')
 
     # draw parameters from the posterior predicted for some observed sample
@@ -121,25 +118,4 @@ class Model:
         parameter = self.normalizer.normalize_parameters(raw_parameter)
         data = self.simulate_data_with_parameters(parameter, n_points)
         return parameter.squeeze(0), data.squeeze(0)
-
-    def save(self, file):
-        save_dict = {
-            'posterior': self.posterior,
-            'normalizer': self.normalizer,
-            'prior': self.prior,
-            'device': self.device,
-        }
-        with open(file, 'wb') as f:
-            pickle.dump(save_dict, f)
-        print(f"Model saved to {file}")
-
-    def load(self, file):
-        with open(file, 'rb') as f:
-            save_dict = pickle.load(f)
-        self.posterior = save_dict['posterior']
-        self.normalizer = save_dict['normalizer']
-        self.prior = save_dict['prior']
-        self.set_simulator(10, 200, 2) # todo sauvergarder ce qui a lien avec le nn avec le model et ce qui a lien avec les données dans les packages
-        self.build_default()
-        print(f"Model loaded from {file}")
      
