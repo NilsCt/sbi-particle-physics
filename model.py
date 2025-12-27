@@ -6,6 +6,7 @@ from sbi.neural_nets import posterior_nn
 from simulator import Simulator
 from normalizer import Normalizer
 from sbi.neural_nets.embedding_nets import FCEmbedding, PermutationInvariantEmbedding
+import pickle
 
 class Model:
     # Object containing everything we need
@@ -120,4 +121,25 @@ class Model:
         parameter = self.normalizer.normalize_parameters(raw_parameter)
         data = self.simulate_data_with_parameters(parameter, n_points)
         return parameter.squeeze(0), data.squeeze(0)
-    
+
+    def save(self, file):
+        save_dict = {
+            'posterior': self.posterior,
+            'normalizer': self.normalizer,
+            'prior': self.prior,
+            'device': self.device,
+        }
+        with open(file, 'wb') as f:
+            pickle.dump(save_dict, f)
+        print(f"Model saved to {file}")
+
+    def load(self, file):
+        with open(file, 'rb') as f:
+            save_dict = pickle.load(f)
+        self.posterior = save_dict['posterior']
+        self.normalizer = save_dict['normalizer']
+        self.prior = save_dict['prior']
+        self.set_simulator(10, 200, 2) # todo sauvergarder ce qui a lien avec le nn avec le model et ce qui a lien avec les données dans les packages
+        self.build_default()
+        print(f"Model loaded from {file}")
+     
