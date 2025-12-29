@@ -19,7 +19,7 @@ preruns = 2
 model.set_simulator(stride, pre_N, preruns)
 # not necessary to build the nn
 
-start_index =30
+start_index =130
 print("Starting to generate data")
 for i in range(100):
     location = f"data/data{start_index + i}.pt"

@@ -5,6 +5,7 @@ import os
 import glob
 from model import Model
 import pickle
+from tqdm.notebook import tqdm
 
 class BackupManager:
 
@@ -24,23 +25,34 @@ class BackupManager:
         }, file)
 
     @staticmethod
-    def load_data(directory):
+    def load_one_file(file):
+        print(f"Loading {os.path.basename(file)}")
+        checkpoint = torch.load(file, weights_only=False)
+        file_raw_data = checkpoint['raw_data']
+        file_raw_parameters = checkpoint['raw_parameters']
+        metadata = checkpoint['metadata']
+        print(f"(data: {file_raw_data.shape}, params: {file_raw_parameters.shape})")
+        return file_raw_data, file_raw_parameters, metadata
+
+
+    @staticmethod
+    def load_data(directory, max_files=None):
         data_files = sorted(glob.glob(f"{directory}/data*.pt"))
+        if max_files is not None :
+            data_files = data_files[:max_files]
         print(f"#files : {len(data_files)}")
         print(f"files : {[os.path.basename(f) for f in data_files]}\n")
         all_raw_data = []
         all_raw_parameters = []
 
         metadata = None
-        for file_path in data_files:
-            print(f"Loading {os.path.basename(file_path)}")
+        for file_path in tqdm(data_files, desc="Loading files", leave=True):
             checkpoint = torch.load(file_path, weights_only=False)
             if metadata is None: metadata = checkpoint['metadata'] # we keed the metadata from the first file
             file_raw_data = checkpoint['raw_data']
             file_raw_parameters = checkpoint['raw_parameters']
             all_raw_data.append(file_raw_data)
             all_raw_parameters.append(file_raw_parameters)
-            print(f"(data: {file_raw_data.shape}, params: {file_raw_parameters.shape})")
 
         raw_data = torch.cat(all_raw_data, dim=0)
         raw_parameters = torch.cat(all_raw_parameters, dim=0)
@@ -50,8 +62,8 @@ class BackupManager:
         return raw_data, raw_parameters, metadata
     
     @staticmethod
-    def load_data_and_build_model(directory, stride, pre_N, preruns, seed=None):
-        raw_data, raw_parameters, metadata = BackupManager.load_data(directory)
+    def load_data_and_build_model(directory, stride, pre_N, preruns, seed=None, max_files=None):
+        raw_data, raw_parameters, metadata = BackupManager.load_data(directory, max_files=max_files)
 
         device = torch.device(metadata['device'])
         model = Model(device, seed)

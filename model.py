@@ -97,10 +97,15 @@ class Model:
         raw_data = self.simulator.simulate_samples(raw_parameters, n_points)
         return self.normalizer.normalize_data(raw_data)
 
-    def train(self, data, parameters, stop_after_epochs):  
+    def train(self, data, parameters, stop_after_epochs=None, max_num_epochs=None):  
         self.neural_network.append_simulations(parameters, data)
-        self.neural_network.train(stop_after_epochs=stop_after_epochs)
-        self.posterior = self.neural_network.build_posterior(sample_with='mcmc')
+        if(stop_after_epochs is not None): self.neural_network.train(stop_after_epochs=stop_after_epochs)
+        if(max_num_epochs is not None): self.neural_network.train(max_num_epochs=max_num_epochs)
+        self.posterior = self.neural_network.build_posterior(sample_with='rejection') # "mcmc" pour etre plus précis mais extrement lent et diagnostiques presque impossibles 
+
+    def resume_training(self, max_num_epochs):
+        self.neural_network.train(max_num_epochs=max_num_epochs, resume_training=True)
+        self.posterior = self.neural_network.build_posterior(sample_with='rejection')
 
     # draw parameters from the posterior predicted for some observed sample
     def draw_parameters_from_predicted_posterior(self, observed_sample, n_parameters):
