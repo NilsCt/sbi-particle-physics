@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch import Tensor
 from model import Model
+from plotter import Plotter
 import numpy as np
 from sbi.diagnostics import run_sbc
 from sbi.analysis.plot import sbc_rank_plot
@@ -76,38 +77,38 @@ class Diagnostics:
 
         S, D = stats_obs.shape
 
-        fig, axes = plt.subplots(
-            S, D,
-            figsize=(3 * D, 3 * S),
-            squeeze=False,
-        )
+        # fig, axes = plt.subplots(
+        #     S, D,
+        #     figsize=(3 * D, 3 * S),
+        #     squeeze=False,
+        # )
 
-        for s in range(S):
-            for d in range(D):
-                ax = axes[s, d]
+        # for s in range(S):
+        #     for d in range(D):
+        #         ax = axes[s, d]
 
-                ax.boxplot(
-                    stats_pp[:, s, d].cpu().numpy(),
-                    vert=True,
-                    widths=0.6,
-                    showfliers=False,
-                )
+        #         ax.boxplot(
+        #             stats_pp[:, s, d].cpu().numpy(),
+        #             vert=True,
+        #             widths=0.6,
+        #             showfliers=False,
+        #         )
 
-                # Observed statistic
-                ax.scatter(
-                    1,
-                    stats_obs[s, d].item(),
-                    color="red",
-                    zorder=3,
-                    label="Observed" if (s == 0 and d == 0) else None,
-                )
+        #         # Observed statistic
+        #         ax.scatter(
+        #             1,
+        #             stats_obs[s, d].item(),
+        #             color="red",
+        #             zorder=3,
+        #             label="Observed" if (s == 0 and d == 0) else None,
+        #         )
 
-                ax.set_xticks([])
-                ax.set_title(rf"$s_{s}(x_{d})$")
+        #         ax.set_xticks([])
+        #         ax.set_title(rf"$s_{s}(x_{d})$")
 
-        axes[0, 0].legend()
-        plt.tight_layout()
-        plt.show()
+        # axes[0, 0].legend()
+        # plt.tight_layout()
+        # plt.show()
 
         fig, axes = plt.subplots(
             S, D,
@@ -364,3 +365,79 @@ class Diagnostics:
         fig = plt.gcf()
         fig.savefig("plots/lc2st/plot2.png", bbox_inches="tight")
         plt.close(fig)
+
+    """
+    Plot many 1D posteriors in a grid to verify the accuracy of the predictions
+    """
+    @staticmethod
+    def many_posteriors(
+        model : Model,
+        parameter_component_index : int,
+        n_cols: int = 6,
+        n_rows: int = 5,
+        bins: int = 40,
+        figsize_per_plot=(3.0, 2.4),
+        savepath: str | None = None,
+    ):
+        n_plots = n_cols * n_rows
+        n_points = 1000
+        n_samples = 1000
+
+        fig, axes = plt.subplots(
+            n_rows,
+            n_cols,
+            figsize=(figsize_per_plot[0] * n_cols,
+                     figsize_per_plot[1] * n_rows),
+            squeeze=False,
+        )
+
+        for i in range(n_plots):
+            row = i // n_cols
+            col = i % n_cols
+            ax = axes[row, col]
+
+            true_parameter, observed_sample = model.get_random_true_parameter(n_points)
+            samples = model.draw_parameters_from_predicted_posterior(observed_sample, n_samples)
+
+            ax.hist(
+                samples[:,parameter_component_index],
+                bins=bins,
+                density=True,
+                alpha=0.6,
+                color="green",
+            )
+
+            ax.axvline(
+                true_parameter[parameter_component_index],
+                color="red",
+                linestyle="--",
+                linewidth=2,
+            )
+
+            ax.tick_params(labelsize=Plotter.tick_fontsize)
+            ax.grid(True, alpha=0.3)
+
+        # Hide unused axes
+        for j in range(n_plots, n_plots):
+            axes[j // n_cols, j % n_cols].axis("off")
+
+        # Global legend (once)
+        handles = [
+            plt.Line2D([], [], color="green", alpha=0.6, linewidth=8, label="posterior"),
+            plt.Line2D([], [], color="red", linestyle="--", linewidth=2, label="True value"),
+        ]
+        fig.legend(
+            handles=handles,
+            loc="upper center",
+            ncol=2,
+            fontsize=Plotter.legend_fontsize,
+            frameon=False,
+        )
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+        if savepath is None:
+            plt.show()
+        else:
+            fig.savefig(savepath, dpi=150)
+            plt.close(fig)

@@ -68,7 +68,7 @@ class Simulator:
 
     def simulate_samples(self, raw_parameters : Tensor, n_points : int) -> Tensor:
         raw_data = []
-        for raw_parameter in tqdm(raw_parameters, desc="Simulating samples", leave=True):
+        for raw_parameter in tqdm(raw_parameters, desc="Simulating samples", leave=False):
             raw_data.append(self.to_tensor(self.simulate_a_sample(raw_parameter, n_points)))
         return torch.stack(raw_data)
 

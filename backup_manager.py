@@ -63,7 +63,7 @@ class BackupManager:
         all_raw_data = []
         all_raw_parameters = []
         metadata = None
-        for file in tqdm(files, desc="Loading files", leave=True):
+        for file in tqdm(files, desc="Loading files", leave=False):
             file_raw_data, file_raw_parameters, file_metadata = BackupManager.load_one_file(file)
             if metadata is None: metadata = file_metadata # we keep the metadata of the first file
             all_raw_data.append(file_raw_data)
@@ -204,11 +204,11 @@ class BackupManager:
             real_epoch = model.neural_network.epoch
             name = f"{directory}/epoch_{real_epoch}.pkl"
             BackupManager.save_model(model, name)
+            Plotter.plot_loss(model, f"{directory}/loss.png")
             files.append(name)
             if len(files) > 2: # we only keep the last 2 backups (because it takes a lot of space)
                 Path(files[0]).unlink()
                 files.remove(files[0])
             if real_epoch < epoch: break # early_stopping detected
             # it's normal if the nn converges on a backup (exemple 110) then only the last file remains
-        Plotter.plot_loss(model, f"{directory}/loss.png")
 
