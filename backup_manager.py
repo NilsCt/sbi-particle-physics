@@ -108,6 +108,7 @@ class BackupManager:
         if max_files is not None: files = files[:max_files]
         if len(files) == 0: raise BaseException("No files found") 
        
+        print(f"{len(files)} files")
         mean, std = BackupManager.calculate_stats(files, batchsize)
         data0, _, metadata = BackupManager.load_one_file(files[0])
         n_points = data0
@@ -135,7 +136,9 @@ class BackupManager:
             'preruns': model.simulator.preruns,
             'normalizer': model.normalizer,
             'posterior': model.posterior,
-            'neural_network': model.neural_network
+            'neural_network': model.neural_network,
+            'training_loss': model.training_loss,
+            'validation_loss': model.validation_loss
         }
         path = Path(file)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -156,6 +159,8 @@ class BackupManager:
         model.normalizer = save_dict['normalizer']
         model.posterior = save_dict['posterior']
         model.neural_network = save_dict['neural_network']
+        model.training_loss = save_dict['training_loss']
+        model.validation_loss = save_dict['validation_loss']
         print(f"Model loaded from {file}")
         return model
     
@@ -200,10 +205,10 @@ class BackupManager:
             name = f"{directory}/epoch_{real_epoch}.pkl"
             BackupManager.save_model(model, name)
             files.append(name)
-            if real_epoch < epoch: break # early_stopping detected
-            # I put the early stopping first because, if the nn converges exactly on a backup (exemple 110) then only one file would remain
             if len(files) > 2: # we only keep the last 2 backups (because it takes a lot of space)
                 Path(files[0]).unlink()
                 files.remove(files[0])
-        Plotter.plot_loss(model.neural_network, f"{directory}/loss.png")
+            if real_epoch < epoch: break # early_stopping detected
+            # it's normal if the nn converges on a backup (exemple 110) then only the last file remains
+        Plotter.plot_loss(model, f"{directory}/loss.png")
 

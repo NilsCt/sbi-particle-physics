@@ -34,6 +34,8 @@ class Model:
         self.normalizer : Normalizer = None
         self.neural_network : NPE = None
         self.posterior = None
+        self.training_loss : list[float] = []
+        self.validation_loss : list[float] = []
 
     def to_tensor(self, x, dtype=torch.float32) -> Tensor:
         return torch.as_tensor(x, dtype=dtype, device=self.device)
@@ -123,7 +125,12 @@ class Model:
         self.neural_network.append_simulations(parameters, data)
 
     def train(self, stop_after_epochs : int, max_num_epochs : int, resume_training : bool = False):  
+        before = len(self.validation_loss)
         self.neural_network.train(stop_after_epochs=stop_after_epochs, max_num_epochs=max_num_epochs, resume_training=resume_training)
+        new = self.neural_network.epoch - before
+        self.training_loss.extend(self.neural_network.summary["training_loss"][-new:])
+        self.validation_loss.extend(self.neural_network.summary["validation_loss"][-new:]) # I store the losses because sbi reset them every time the training is resumed
+        
         self.posterior = self.neural_network.build_posterior(sample_with='direct') 
     # direct : faster but less precise, used for diagnostics
     # rejection : compromise between direct and mcmc, used for the final version

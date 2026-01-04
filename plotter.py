@@ -40,12 +40,16 @@ class Plotter:
 
     # plot train and validation loss during last training
     @staticmethod
-    def plot_loss(neural_network : NPE, file : str | None):
-        fig, _ = plot_summary(
-            neural_network,
-            tags=["training_loss", "validation_loss"],
-            figsize=(10, 2),
-        )
+    def plot_loss(model : Model, file : str | None = None):
+        fig, ax = plt.subplots(figsize=(8,3))
+        ax.plot(range(1, len(model.training_loss)+1), model.training_loss, label="Training")
+        ax.plot(range(1, len(model.validation_loss)+1), model.validation_loss, label="Validation")
+        ax.set_xlabel("Epoch", fontsize=Plotter.axis_fontsize)
+        ax.set_ylabel("Loss", fontsize=Plotter.axis_fontsize)
+        ax.legend(fontsize=Plotter.legend_fontsize)
+        ax.tick_params(labelsize=Plotter.tick_fontsize)
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
         if file is None: fig.show()
         else: fig.savefig(file)
 
