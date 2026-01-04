@@ -48,9 +48,17 @@ class Diagnostics:
         )
         plt.show()
 
+    @staticmethod
+    def _summary_stats(x):
+    # x shape: (n_points, D)
+        return torch.stack([
+            x.mean(dim=0),
+            x.std(dim=0),
+        ], dim=0)  # shape (2, D)
+
     """
     Posterior Predictive Checks (PPC)
-    Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
+    Generates a parameter θ, simulates data x_i ~ p(x | θ),
     infers posteriors p(θ | x_i), samples θ'_j ~ p(θ | x_i),
     and simulates posterior predictive data x'_j ~ p(x | θ'_j).
 
@@ -59,21 +67,77 @@ class Diagnostics:
     """
     @staticmethod
     def posterior_predictive_checks(model : Model, x_o : Tensor, n_samples : int, n_points : int):
-        D = 5  # simulator output was 5-dimensional
         x_pp, theta_pp = model.simulate_data_from_predicted_posterior(x_o, n_samples, n_points)
-        _ = pairplot(
-            samples=x_pp,
-            points=x_o[0],
-            limits=torch.tensor([[-2.0, 5.0]] * 5),
-            figsize=(8, 8),
-            upper="scatter",
-            upper_kwargs=dict(marker=".", s=5),
-            fig_kwargs=dict(
-                points_offdiag=dict(marker="+", markersize=20),
-                points_colors="red",
-            ),
-            labels=[rf"$x_{d}$" for d in range(D)],
+        stats_pp = []
+        for i in range(x_pp.shape[0]):
+            stats_pp.append(Diagnostics._summary_stats(x_pp[i]))
+        stats_pp = torch.stack(stats_pp)
+        stats_obs = Diagnostics._summary_stats(x_o)
+
+        S, D = stats_obs.shape
+
+        fig, axes = plt.subplots(
+            S, D,
+            figsize=(3 * D, 3 * S),
+            squeeze=False,
         )
+
+        for s in range(S):
+            for d in range(D):
+                ax = axes[s, d]
+
+                ax.boxplot(
+                    stats_pp[:, s, d].cpu().numpy(),
+                    vert=True,
+                    widths=0.6,
+                    showfliers=False,
+                )
+
+                # Observed statistic
+                ax.scatter(
+                    1,
+                    stats_obs[s, d].item(),
+                    color="red",
+                    zorder=3,
+                    label="Observed" if (s == 0 and d == 0) else None,
+                )
+
+                ax.set_xticks([])
+                ax.set_title(rf"$s_{s}(x_{d})$")
+
+        axes[0, 0].legend()
+        plt.tight_layout()
+        plt.show()
+
+        fig, axes = plt.subplots(
+            S, D,
+            figsize=(3 * D, 3 * S),
+            squeeze=False,
+        )
+
+        for s in range(S):
+            for d in range(D):
+                ax = axes[s, d]
+
+                ax.violinplot(
+                    stats_pp[:, s, d].cpu().numpy(),
+                    showmeans=False,
+                    showmedians=True,
+                )
+
+                ax.scatter(
+                    1,
+                    stats_obs[s, d].item(),
+                    color="red",
+                    zorder=3,
+                )
+
+                ax.set_xticks([])
+                ax.set_title(rf"$s_{s}(x_{d})$")
+
+        plt.tight_layout()
+        plt.show()
+
 
     """
     Expected Coverage Test (ECT)
@@ -133,6 +197,12 @@ class Diagnostics:
         print(ks_pval, "Should be larger than 0.05")
         plot_tarp(ecp, alpha)
 
+
+    @staticmethod
+    def _flatten_stats(stats_2d: torch.Tensor) -> torch.Tensor:
+        # stats_2d: (2, D) -> (2D,)
+        return stats_2d.reshape(-1)
+
     """
     Misspecification Test
     Model misspecification occurs when the true data-generating process
@@ -142,23 +212,44 @@ class Diagnostics:
     Misspecification leads to systematically biased or misleading posteriors.
     """
     @staticmethod
-    def misspecification_test(model : Model, x_train : Tensor, x_o : Tensor):
-        # x_train: baseline samples from the model (e.g., 1000-5000 samples)
-        # x_o: single observation to test (shape: (n_points, features))
-        trainer = MarginalTrainer(density_estimator='NSF')
-        trainer.append_samples(x_train)
+    def misspecification_test(model: Model, x_train: Tensor, x_o: Tensor):
+
+        # summaries: (N, 2, D) -> (N, 2D)
+        summaries = torch.stack([
+            Diagnostics._flatten_stats(Diagnostics._summary_stats(x))
+            for x in x_train
+        ], dim=0)  # (N, 2D)
+
+        summary_o = Diagnostics._flatten_stats(Diagnostics._summary_stats(x_o))  # (2D,)
+
+        # (optionnel mais utile) normaliser pour aider le flow
+        mu = summaries.mean(dim=0, keepdim=True)
+        std = summaries.std(dim=0, keepdim=True).clamp_min(1e-8)
+        summaries_z = (summaries - mu) / std
+        summary_o_z = (summary_o - mu.squeeze(0)) / std.squeeze(0)
+
+        trainer = MarginalTrainer(density_estimator="NSF")
+        trainer.append_samples(summaries_z)
         est = trainer.train()
 
-        p_value, reject_H0 = calc_misspecification_logprob(x_train, x_o, est)
+        logp_train = est.log_prob(summaries_z).detach().cpu()
+        logp_obs = est.log_prob(summary_o_z.unsqueeze(0)).item()
+
+        p_value = (logp_train <= logp_obs).float().mean().item()
+        reject_H0 = p_value < 0.05
+
         print(f"p-value: {p_value:.4f}, Reject H0 (misspecified): {reject_H0}")
 
-        plt.figure(figsize=(6, 4), dpi=80)
-        plt.hist(est.log_prob(x_train).detach().numpy(), bins=50, alpha=0.5, label=r'log p($x_{train}$)')
-        plt.axvline(est.log_prob(x_o).detach().item(), color="red", label=r'$\log p(x_{o_{mis}})$)')
-        plt.ylabel('Count')
-        plt.xlabel(r'$\log p(x)$')
+        plt.figure(figsize=(6, 4))
+        plt.hist(logp_train.numpy(), bins=50, alpha=0.6, label=r"$\log p(s(x))$")
+        plt.axvline(logp_obs, color="red", label=r"$\log p(s(x_o))$")
+        plt.xlabel(r"$\log p(s)$")
+        plt.ylabel("Count")
         plt.legend()
+        plt.tight_layout()
         plt.show()
+
+
 
     """
     Misspecification Test using MMD
@@ -171,9 +262,22 @@ class Diagnostics:
     """
     @staticmethod
     def misspecification_test_mmd(model : Model, x_train : Tensor, x_o : Tensor):
+        summaries = torch.stack([
+            Diagnostics._flatten_stats(Diagnostics._summary_stats(x))
+            for x in x_train
+        ])
+
+        summary_o = Diagnostics._flatten_stats(
+            Diagnostics._summary_stats(x_o)
+        ).unsqueeze(0)
+
         p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
-            inference=model.neural_network, x_obs=x_o, x=x_train, mode="embedding"
+            inference=None,
+            x_obs=summary_o,
+            x=summaries,
+            mode="x_space"
         )
+        print("MMD p-value:", p_val) # needs to be larger than 0.05 to be sure there is no missspecification
 
         plt.figure(figsize=(6, 4), dpi=80)
         plt.hist(mmds_baseline.numpy(), bins=50, alpha=0.5, label="baseline")
@@ -248,7 +352,7 @@ class Diagnostics:
         ax.set_xlabel("Test statistic")
         ax.set_ylabel("Density")
         ax.set_title(f"p-value = {p_value:.3f}, reject = {reject}")
-        plt.show()
+        fig.savefig("plots/lc2st/plot1.png") # doesnt't show but save the fig as lc2st is very slow and is executed offline
 
         pp_plot_lc2st(
             probs=[probs_data],
@@ -257,3 +361,6 @@ class Diagnostics:
             labels=["Classifier probabilities \n on observed data"],
             colors=["red"],
         )
+        fig = plt.gcf()
+        fig.savefig("plots/lc2st/plot2.png", bbox_inches="tight")
+        plt.close(fig)
