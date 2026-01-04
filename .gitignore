@@ -2,3 +2,4 @@ models/
 data/
 sbi-logs/
 __pycache__/
+nohup.out

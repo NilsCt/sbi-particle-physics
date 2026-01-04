@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-from sbi.analysis import plot_summary
 import torch
+from torch import Tensor
 from model import Model
 import numpy as np
 from sbi.diagnostics import run_sbc
@@ -10,25 +10,27 @@ from sbi.analysis.plot import plot_tarp
 from sbi.diagnostics.misspecification import calc_misspecification_logprob
 from sbi.inference.trainers.marginal import MarginalTrainer
 from sbi.diagnostics.misspecification import calc_misspecification_mmd
-from sbi.neural_nets import posterior_nn
-from sbi.neural_nets.embedding_nets import FCEmbedding
-from sbi.inference import NPE
 from sbi.diagnostics.lc2st import LC2ST
 from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
 
-class Validator:
-    # test the performance of the model
+class Diagnostics:
+    """
+    Test, quantify and visualize the performance of a model
+    Use conventional diagnostics such as SBC, PPC, Expected coverage, TARP, Missspecification test, LC2ST
+    """
 
-    """Simulation based calibration (SBC)
-    Génère des paramètres theta_i, puis simule des données x_i ~ p(x|theta_i)
-    puis prédit les postérieurs p(theta|x_i) et regarde où se situe theta_i dans le posterior
-    
-    puis histogramme des rangs uniformes, test KS d'uniformité,  xi^2
-    teste les biais systématiques, la surconfiance ou sous-confiance des postérieurs
+    """
+    Simulation-Based Calibration (SBC)
+    Generates parameters θ_i from the prior, simulates data x_i ~ p(x | θ_i),
+    infers posteriors p(θ | x_i), and evaluates the rank of θ_i within each posterior.
+
+    The distribution of ranks should be uniform.
+    Uniform rank histograms, KS tests, and χ² tests are used to detect
+    systematic bias and posterior over- or under-confidence.
     """
     @staticmethod
-    def simulation_based_calibration(model, x, theta,num_posterior_samples):
+    def simulation_based_calibration(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
         # x, theta = model.simulate_data(n_samples, n_points)
         ranks, dap_samples = run_sbc(
             theta,
@@ -46,15 +48,17 @@ class Validator:
         )
         plt.show()
 
-    """Posterior Predictive Checks (PPC)
-    Génère des paramètres theta_i, puis simule des données x_i ~ p(x|theta_i)
-    puis prédict les postérieurs et génère theta'_j ~ p(theta|x_i) et simule des données x'_j ~ p(x|theta'_j)
-    puis compare les distributions de x_i et x'_j
+    """
+    Posterior Predictive Checks (PPC)
+    Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
+    infers posteriors p(θ | x_i), samples θ'_j ~ p(θ | x_i),
+    and simulates posterior predictive data x'_j ~ p(x | θ'_j).
 
-    teste si les données simulées à partir des postérieurs ressemblent aux données observées
+    Compares observed data x_i with posterior predictive data x'_j
+    to assess whether the inferred posteriors can reproduce the observed data.
     """
     @staticmethod
-    def posterior_predictive_checks(model, x_o, n_samples, n_points):
+    def posterior_predictive_checks(model : Model, x_o : Tensor, n_samples : int, n_points : int):
         D = 5  # simulator output was 5-dimensional
         x_pp, theta_pp = model.simulate_data_from_predicted_posterior(x_o, n_samples, n_points)
         _ = pairplot(
@@ -71,14 +75,17 @@ class Validator:
             labels=[rf"$x_{d}$" for d in range(D)],
         )
 
-    """Expected Coverage Test (ECT)
-    Génère des paramètres theta_i, puis simule des données x_i ~ p(x|theta_i)
-    puis prédit les postérieurs p(theta|x_i) et vérifie que les theta_i soient dans les intervalles de crédibilité
+    """
+    Expected Coverage Test (ECT)
+    Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
+    infers posteriors p(θ | x_i), and checks whether θ_i lies
+    within posterior credible intervals at nominal coverage levels.
 
-    teste la surconfiance ou sous-confiance des postérieurs
+    The empirical coverage is compared to the nominal coverage
+    to detect posterior over- or under-confidence.
     """
     @staticmethod
-    def expected_coverage_test(model, x, theta, num_posterior_samples):
+    def expected_coverage_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
         #x, theta = model.simulate_data(n_samples, n_points)
         ranks, dap_samples = run_sbc(
             theta,
@@ -98,13 +105,17 @@ class Validator:
         )
         plt.show()
 
-    """TARP Test
-    Génère des paramètres theta_i, puis simule des données x_i ~ p(x|theta_i)
-    puis prédit les postérieurs p(theta|x_i) et calcule les Expected Credible Percentiles (ECP)
-    puis compare la distribution des ECP à la distribution uniforme
+    """
+    TARP Test
+    Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
+    infers posteriors p(θ | x_i), and computes Expected Credible Percentiles (ECP)
+    of the true parameters under the inferred posteriors.
+
+    The ECP distribution should be uniform.
+    Deviations indicate bias or miscalibration of the posterior.
     """
     @staticmethod
-    def tarp_test(model, x, theta, num_posterior_samples):
+    def tarp_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
         # the tarp method returns the ECP values for a given set of alpha coverage levels.
         ecp, alpha = run_tarp(
             theta,
@@ -122,12 +133,16 @@ class Validator:
         print(ks_pval, "Should be larger than 0.05")
         plot_tarp(ecp, alpha)
 
-    """Misspecification Test
-    missspecification = true data-generating process differs from the assumed model
-    cad pour aucune valeur des paramètres le modèle ne peut reproduire les données observées
+    """
+    Misspecification Test
+    Model misspecification occurs when the true data-generating process
+    differs from the assumed model, such that no parameter value
+    can generate data consistent with the observations.
+
+    Misspecification leads to systematically biased or misleading posteriors.
     """
     @staticmethod
-    def misspecification_test(model, x_train, x_o):
+    def misspecification_test(model : Model, x_train : Tensor, x_o : Tensor):
         # x_train: baseline samples from the model (e.g., 1000-5000 samples)
         # x_o: single observation to test (shape: (n_points, features))
         trainer = MarginalTrainer(density_estimator='NSF')
@@ -145,11 +160,17 @@ class Validator:
         plt.legend()
         plt.show()
 
-    """Misspecification Test with MMD
-    mmd = maximum mean discrepancy
+    """
+    Misspecification Test using MMD
+    Uses Maximum Mean Discrepancy (MMD) to measure the distance
+    between the distribution of observed data and data simulated
+    from the inferred posterior predictive distribution.
+
+    Large MMD values indicate model misspecification,
+    i.e. the model cannot reproduce the observed data distribution.
     """
     @staticmethod
-    def misspecification_test_mmd(model, x_train, x_o):
+    def misspecification_test_mmd(model : Model, x_train : Tensor, x_o : Tensor):
         p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
             inference=model.neural_network, x_obs=x_o, x=x_train, mode="embedding"
         )
@@ -162,13 +183,17 @@ class Validator:
         plt.legend()
         plt.show()
 
-    """LC2ST Test
-    Local Classifier 2-Sample Test
-    Compare les données observées avec des données simulées à partir des postérieurs prédits
-    teste la capacité du modèle à reproduire les données observées
+    """
+    LC2ST Test (Local Classifier Two-Sample Test)
+    Trains a classifier to distinguish observed data from data
+    simulated using the inferred posterior predictive distribution.
+
+    If the classifier performs better than chance, the model
+    fails to reproduce the observed data, indicating misspecification
+    or poor posterior quality.
     """
     @staticmethod
-    def lc2st_test(model, n_samples, n_points, x_o):
+    def lc2st_test(model : Model, x_o : Tensor, n_samples : int, n_points : int):
         # x_o: single observation WITH batch dimension, shape: (1, n_points, features)
         posterior = model.posterior
         # Simulate calibration data. Should be at least in the thousands.

@@ -2,17 +2,22 @@ import matplotlib.pyplot as plt
 from sbi.analysis import plot_summary
 from model import Model
 import numpy as np
+from torch import Tensor
+from sbi.inference import NPE
 
-class Ploter:
-    # make cool plots and test the performance 
-    axis_fontsize = 21 # companion object variables
+class Plotter:
+    """
+    Make plots to visualize the data, the predictions, etc.
+    """
+
+    axis_fontsize = 21
     legend_fontsize = 15
     tick_fontsize = 15     
     data_labels = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
     parameters_labels = ["$C_9$"]   
 
     @staticmethod
-    def plot_a_sample_1D(sample, parameter, label):
+    def plot_a_sample_1D(sample : Tensor, parameter : Tensor, label : str):
         fig, ax = plt.subplots(figsize=(7,4))
         ax.hist(
             sample,
@@ -21,29 +26,31 @@ class Ploter:
             alpha=0.7,
             label=f"$C_9={parameter.item():.3f}$"
         )
-        ax.set_xlabel(label, fontsize=Ploter.axis_fontsize)
-        ax.tick_params(labelsize=Ploter.tick_fontsize)
+        ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
+        ax.tick_params(labelsize=Plotter.tick_fontsize)
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=Ploter.legend_fontsize)
+        ax.legend(fontsize=Plotter.legend_fontsize)
         plt.tight_layout()
         plt.show()
 
     @staticmethod
-    def plot_a_sample(sample, parameter):
-        for i,label in enumerate(Ploter.data_labels):
-            Ploter.plot_a_sample_1D(sample[:,i], parameter, label)
+    def plot_a_sample(sample : Tensor, parameter : Tensor):
+        for i,label in enumerate(Plotter.data_labels):
+            Plotter.plot_a_sample_1D(sample[:,i], parameter, label)
 
     # plot train and validation loss during last training
     @staticmethod
-    def plot_loss(neural_network):
-        _ = plot_summary(
+    def plot_loss(neural_network : NPE, file : str | None):
+        fig, _ = plot_summary(
             neural_network,
             tags=["training_loss", "validation_loss"],
             figsize=(10, 2),
         )
+        if file is None: fig.show()
+        else: fig.savefig(file)
 
     @staticmethod
-    def plot_a_posterior_parameter(sampled_parameters, label, true_value):
+    def plot_a_posterior_parameter(sampled_parameters : Tensor, label : str, true_value : float):
         fig, ax = plt.subplots(figsize=(7,4))
         ax.hist(
             sampled_parameters,
@@ -53,22 +60,22 @@ class Ploter:
             color="green",
             label="posterior"
         )
-        ax.set_xlabel(label, fontsize=Ploter.axis_fontsize)
-        ax.tick_params(labelsize=Ploter.tick_fontsize)
+        ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
+        ax.tick_params(labelsize=Plotter.tick_fontsize)
         ax.grid(True, alpha=0.3)
         ax.axvline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
-        ax.legend(fontsize=Ploter.legend_fontsize)
+        ax.legend(fontsize=Plotter.legend_fontsize)
         plt.tight_layout()
         plt.show()
 
     @staticmethod
-    def plot_a_posterior(sampled_parameters, true_value):
-        for i,label in enumerate(Ploter.parameters_labels):
-            Ploter.plot_a_posterior_parameter(sampled_parameters[:,i], label, true_value[i])
+    def plot_a_posterior(sampled_parameters : Tensor, true_value : Tensor):
+        for i,label in enumerate(Plotter.parameters_labels):
+            Plotter.plot_a_posterior_parameter(sampled_parameters[:,i], label, true_value[i])
 
     
     @staticmethod
-    def plot_similar_data_1D(observed_sample, similar_data, label):
+    def plot_similar_data_1D(observed_sample : Tensor, similar_data : Tensor, label : str):
         fig, ax = plt.subplots(figsize=(7,4))
         ax.hist(
             observed_sample,
@@ -86,22 +93,22 @@ class Ploter:
                 color="blue",
                 density=True
             )
-        ax.set_xlabel(label, fontsize=Ploter.axis_fontsize)
-        ax.tick_params(labelsize=Ploter.tick_fontsize)
+        ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
+        ax.tick_params(labelsize=Plotter.tick_fontsize)
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=Ploter.legend_fontsize)
+        ax.legend(fontsize=Plotter.legend_fontsize)
         plt.tight_layout()
         plt.show()
 
     # plot data generated from parameters drawn from the posterior estimation associated with the observed sample
     @staticmethod
-    def plot_similar_data(model, observed_sample, n_samples, n_points):
+    def plot_similar_data(model : Model, observed_sample : Tensor, n_samples : int, n_points : int):
         similar_data, similar_parameters = model.simulate_data_from_predicted_posterior(observed_sample, n_samples, n_points)
-        for i,label in enumerate(Ploter.data_labels):
-            Ploter.plot_similar_data_1D(observed_sample[:,i], similar_data[:,:,i], label)
+        for i,label in enumerate(Plotter.data_labels):
+            Plotter.plot_similar_data_1D(observed_sample[:,i], similar_data[:,:,i], label)
 
     @staticmethod
-    def compare_distributions(samples_list, parameters_list, n_samples_to_plot=5):
+    def compare_distributions(samples_list : Tensor, parameters_list : Tensor, n_samples_to_plot : int = 5):
         # Select indices to compare (evenly spaced across parameter range)
         n_total = len(parameters_list)
         if n_samples_to_plot > n_total:
@@ -119,7 +126,7 @@ class Ploter:
         fig, axes = plt.subplots(2, 2, figsize=(14, 10))
         axes = axes.flatten()
 
-        for obs_idx, label in enumerate(Ploter.data_labels):
+        for obs_idx, label in enumerate(Plotter.data_labels):
             ax = axes[obs_idx]
 
             for i, sample_idx in enumerate(selected_indices):
@@ -135,11 +142,11 @@ class Ploter:
                     density=True
                 )
 
-            ax.set_xlabel(label, fontsize=Ploter.axis_fontsize)
-            ax.set_ylabel("Density", fontsize=Ploter.axis_fontsize)
-            ax.tick_params(labelsize=Ploter.tick_fontsize)
+            ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
+            ax.set_ylabel("Density", fontsize=Plotter.axis_fontsize)
+            ax.tick_params(labelsize=Plotter.tick_fontsize)
             ax.grid(True, alpha=0.3)
-            ax.legend(fontsize=Ploter.legend_fontsize)
+            ax.legend(fontsize=Plotter.legend_fontsize)
 
         plt.tight_layout()
         plt.show()

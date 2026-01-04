@@ -1,23 +1,26 @@
 import torch
+from torch import Tensor
 import eos
 import numpy as np
 from tqdm.notebook import tqdm
 import logging
+from matplotlib.pylab import RandomState
 
 
 class Simulator:
-    # the simulator deals with un-normalized data (raw)
+    """
+    Simulate data with given parameters
 
-    raw_point_dim = 4
-    encoded_point_dim = 5
-    parameter_dim = 1
+    Deal only with un-normalized ("raw") data and parameters
+    """
 
-    def __init__(self, device, rng, stride, pre_N, preruns):
+
+    def __init__(self, device, rng : RandomState, stride : int, pre_N : int, preruns : int):
         self.device = device
-        self.stride = stride
-        self.pre_N = pre_N
-        self.preruns = preruns
-        self.rng = rng
+        self.stride : int = stride
+        self.pre_N : int = pre_N
+        self.preruns : int = preruns
+        self.rng : RandomState = rng
 
         self.eos_kinematics = eos.Kinematics({
             's':             2.0,   's_min':             1,       's_max' :            8.0,
@@ -45,14 +48,14 @@ class Simulator:
             self.eos_options
         )
 
-        eos.logger.setLevel(logging.WARNING) # INFO pour avoir les info
+        eos.logger.setLevel(logging.WARNING) # or INFO to get the details
         #handler = logging.StreamHandler(stream=sys.stdout)
         #eos.logger.addHandler(handler)
 
-    def to_tensor(self, x, dtype=torch.float32):
+    def to_tensor(self, x, dtype=torch.float32) -> Tensor:
         return torch.as_tensor(x, dtype=dtype, device=self.device)
 
-    def simulate_a_sample(self, raw_parameter, n_points):
+    def simulate_a_sample(self, raw_parameter : Tensor, n_points : int) -> Tensor:
         self.set_eos_parameter(raw_parameter)
         raw_sample, _ = self.distribution.sample_mcmc(
             N=n_points,
@@ -63,13 +66,12 @@ class Simulator:
         )
         return self.to_tensor(raw_sample)
 
-    def simulate_samples(self, raw_parameters, n_points):
-        n_samples = raw_parameters.shape[0]
-        raw_data = torch.zeros((n_samples, n_points, Simulator.raw_point_dim), dtype=torch.float32, device=self.device)
-        for i, raw_parameter in enumerate(tqdm(raw_parameters, desc="Simulating samples", leave=True)):
-            raw_data[i] = self.simulate_a_sample(raw_parameter, n_points)
-        return raw_data
+    def simulate_samples(self, raw_parameters : Tensor, n_points : int) -> Tensor:
+        raw_data = []
+        for raw_parameter in tqdm(raw_parameters, desc="Simulating samples", leave=True):
+            raw_data.append(self.to_tensor(self.simulate_a_sample(raw_parameter, n_points)))
+        return torch.stack(raw_data)
 
-    def set_eos_parameter(self, raw_parameter):
+    def set_eos_parameter(self, raw_parameter : Tensor):
         self.eos_parameters.set("b->smumu::Re{c9}", raw_parameter[0].item())
         return self.eos_parameters
