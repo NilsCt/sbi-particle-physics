@@ -15,7 +15,7 @@ from sbi.diagnostics.lc2st import LC2ST
 from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
 
-class Diagnostics:
+class ModelDiagnostics:
     """
     Test, quantify and visualize the performance of a model
     Use conventional diagnostics such as SBC, PPC, Expected coverage, TARP, Missspecification test, LC2ST
@@ -71,9 +71,9 @@ class Diagnostics:
         x_pp, theta_pp = model.simulate_data_from_predicted_posterior(x_o, n_samples, n_points)
         stats_pp = []
         for i in range(x_pp.shape[0]):
-            stats_pp.append(Diagnostics._summary_stats(x_pp[i]))
+            stats_pp.append(ModelDiagnostics._summary_stats(x_pp[i]))
         stats_pp = torch.stack(stats_pp)
-        stats_obs = Diagnostics._summary_stats(x_o)
+        stats_obs = ModelDiagnostics._summary_stats(x_o)
 
         S, D = stats_obs.shape
 
@@ -217,11 +217,11 @@ class Diagnostics:
 
         # summaries: (N, 2, D) -> (N, 2D)
         summaries = torch.stack([
-            Diagnostics._flatten_stats(Diagnostics._summary_stats(x))
+            ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
             for x in x_train
         ], dim=0)  # (N, 2D)
 
-        summary_o = Diagnostics._flatten_stats(Diagnostics._summary_stats(x_o))  # (2D,)
+        summary_o = ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x_o))  # (2D,)
 
         # (optionnel mais utile) normaliser pour aider le flow
         mu = summaries.mean(dim=0, keepdim=True)
@@ -264,12 +264,12 @@ class Diagnostics:
     @staticmethod
     def misspecification_test_mmd(model : Model, x_train : Tensor, x_o : Tensor):
         summaries = torch.stack([
-            Diagnostics._flatten_stats(Diagnostics._summary_stats(x))
+            ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
             for x in x_train
         ])
 
-        summary_o = Diagnostics._flatten_stats(
-            Diagnostics._summary_stats(x_o)
+        summary_o = ModelDiagnostics._flatten_stats(
+            ModelDiagnostics._summary_stats(x_o)
         ).unsqueeze(0)
 
         p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
@@ -289,90 +289,13 @@ class Diagnostics:
         plt.show()
 
     """
-    LC2ST Test (Local Classifier Two-Sample Test)
-    Trains a classifier to distinguish observed data from data
-    simulated using the inferred posterior predictive distribution.
-
-    If the classifier performs better than chance, the model
-    fails to reproduce the observed data, indicating misspecification
-    or poor posterior quality.
-    """
-    @staticmethod
-    def lc2st_test(model : Model, x_o : Tensor, n_samples : int, n_points : int):
-        # x_o: single observation WITH batch dimension, shape: (1, n_points, features)
-        posterior = model.posterior
-        # Simulate calibration data. Should be at least in the thousands.
-        prior_predictives, prior_samples = model.simulate_data(n_samples, n_points)
-
-        # Generate one posterior sample for every prior predictive.
-        post_samples_cal = posterior.sample_batched(
-            (1,),
-            x=prior_predictives,
-            max_sampling_batch_size=10
-        )[0]
-        # Train the L-C2ST classifier.
-        lc2st = LC2ST(
-            thetas=prior_samples,
-            xs=prior_predictives,
-            posterior_samples=post_samples_cal,
-            classifier="mlp",
-            num_ensemble=1,
-        )
-        _ = lc2st.train_under_null_hypothesis()
-        _ = lc2st.train_on_observed_data()
-
-        # Note: x_o must have a batch-dimension. I.e. `x_o.shape == (1, observation_shape)`.
-        # Ensure x_o is a tensor with batch dimension
-        if not isinstance(x_o, torch.Tensor):
-            x_o = torch.as_tensor(x_o)
-        if x_o.dim() == 2:  # If shape is (n_points, features), add batch dim
-            x_o = x_o.unsqueeze(0)  # -> (1, n_points, features)
-
-        post_samples_star = posterior.sample((10_000,), x=x_o)
-        probs_data, scores_data = lc2st.get_scores(
-            theta_o=post_samples_star,
-            x_o=x_o,
-            return_probs=True,
-            trained_clfs=lc2st.trained_clfs
-        )
-        probs_null, scores_null = lc2st.get_statistics_under_null_hypothesis(
-            theta_o=post_samples_star,
-            x_o=x_o,
-            return_probs=True,
-        )
-        conf_alpha = 0.05
-        p_value = lc2st.p_value(post_samples_star, x_o)
-        reject = lc2st.reject_test(post_samples_star, x_o, alpha=conf_alpha)
-
-        fig, ax = plt.subplots(1, 1, figsize=(5, 3))
-        quantiles = np.quantile(scores_null, [0, 1-conf_alpha])
-        ax.hist(scores_null, bins=50, density=True, alpha=0.5, label="Null")
-        ax.axvline(scores_data, color="red", label="Observed")
-        ax.axvline(quantiles[0], color="black", linestyle="--", label="95% CI")
-        ax.axvline(quantiles[1], color="black", linestyle="--")
-        ax.set_xlabel("Test statistic")
-        ax.set_ylabel("Density")
-        ax.set_title(f"p-value = {p_value:.3f}, reject = {reject}")
-        fig.savefig("plots/lc2st/plot1.png") # doesnt't show but save the fig as lc2st is very slow and is executed offline
-
-        pp_plot_lc2st(
-            probs=[probs_data],
-            probs_null=probs_null,
-            conf_alpha=0.05,
-            labels=["Classifier probabilities \n on observed data"],
-            colors=["red"],
-        )
-        fig = plt.gcf()
-        fig.savefig("plots/lc2st/plot2.png", bbox_inches="tight")
-        plt.close(fig)
-
-    """
     Plot many 1D posteriors in a grid to verify the accuracy of the predictions
     """
     @staticmethod
     def many_posteriors(
         model : Model,
         parameter_component_index : int,
+        x_min : int, x_max : int,
         n_cols: int = 6,
         n_rows: int = 5,
         bins: int = 40,
@@ -406,7 +329,7 @@ class Diagnostics:
                 alpha=0.6,
                 color="green",
             )
-
+            ax.set_xlim(x_min, x_max)
             ax.axvline(
                 true_parameter[parameter_component_index],
                 color="red",
