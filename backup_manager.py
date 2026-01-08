@@ -189,13 +189,16 @@ class BackupManager:
     def _epochs_step(epochs : int):
         if epochs < 10: return 1 
         elif epochs < 30: return 5 
-        else: return 10
+        else: return 10    
 
     @staticmethod
-    def train_model_with_backups(model : Model, stop_after_epochs : int, max_epochs : int, directory : str):
-        epoch = 0
-        resume = False
+    def train_model_with_backups(model : Model, stop_after_epochs : int, max_epochs : int, directory : str, resume : bool = False, delete_old_backups : bool = False):
+        # resume = True if the neural network has already been partially trained before
+        # delete_old_backups = True: the old back up files from previous partial trainings are deleted (replaced by new backups)
+        epoch = model.neural_network.epoch if resume else 0 # model.neural_network.epoch doesn't work it the neural network hasn't been trained yet
         files = []
+        if delete_old_backups:
+            files = sorted(glob.glob(f"{directory}/epoch_*.pkl"), key=BackupManager._extract_epoch)
         print("Start of training")
         while epoch < max_epochs:
             epoch += BackupManager._epochs_step(epoch)
@@ -204,11 +207,14 @@ class BackupManager:
             real_epoch = model.neural_network.epoch
             name = f"{directory}/epoch_{real_epoch}.pkl"
             BackupManager.save_model(model, name)
-            Plotter.plot_loss(model, f"{directory}/loss.png")
+            Plotter.plot_loss(model, f"{directory}/loss")
             files.append(name)
             if len(files) > 2: # we only keep the last 2 backups (because it takes a lot of space)
                 Path(files[0]).unlink()
                 files.remove(files[0])
             if real_epoch < epoch: break # early_stopping detected
-            # it's normal if the nn converges on a backup (exemple 110) then only the last file remains
+            # it's normal that if the nn converges on a backup (exemple 110) then only the last file remains
+        
+        
+
 

@@ -38,20 +38,36 @@ class Plotter:
         for i,label in enumerate(Plotter.data_labels):
             Plotter.plot_a_sample_1D(sample[:,i], parameter, label)
 
-    # plot train and validation loss during last training
+
     @staticmethod
-    def plot_loss(model : Model, file : str | None = None):
+    def _loss_lot(model : Model, detailed : bool) -> plt.Figure:
+        values1 = model.training_loss
+        values2 = model.validation_loss
+        if detailed:
+            values1 = values1[100:] # removes the 100 first epochs to focus on the last small improvements
+            values2 = values2[100:]
         fig, ax = plt.subplots(figsize=(8,3))
-        ax.plot(range(1, len(model.training_loss)+1), model.training_loss, label="Training")
-        ax.plot(range(1, len(model.validation_loss)+1), model.validation_loss, label="Validation")
+        ax.plot(range(1, len(values1)+1), values1, label="Training")
+        ax.plot(range(1, len(values2)+1), values2, label="Validation")
         ax.set_xlabel("Epoch", fontsize=Plotter.axis_fontsize)
         ax.set_ylabel("Loss", fontsize=Plotter.axis_fontsize)
         ax.legend(fontsize=Plotter.legend_fontsize)
         ax.tick_params(labelsize=Plotter.tick_fontsize)
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
+        return fig
+
+    # plot train and validation loss during last training
+    @staticmethod
+    def plot_loss(model : Model, file : str | None = None):
+        fig = Plotter._loss_lot(model, False)
         if file is None: fig.show()
-        else: fig.savefig(file)
+        else: fig.savefig(f"{file}.png")
+        if len(model.training_loss) > 110 and len(model.validation_loss) > 110:
+            fig2 = Plotter._loss_lot(model, True)
+            if file is None: fig2.show()
+            else: fig2.savefig(f"{file}_zoom.png")
+
 
     @staticmethod
     def plot_a_posterior_parameter(sampled_parameters : Tensor, label : str, true_value : float):
