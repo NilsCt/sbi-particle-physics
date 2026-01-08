@@ -108,6 +108,9 @@ class Model:
     def draw_raw_parameters_from_prior(self, n_parameters : int) -> Tensor:
         return self.prior.sample((n_parameters,))
     
+    def draw_parameters_from_prior(self, n_parameters : int) -> Tensor:
+        return self.normalizer.normalize_parameters(self.draw_raw_parameters_from_prior(n_parameters))
+    
     def simulate_raw_data(self, n_samples : int, n_points : int) -> tuple[Tensor, Tensor]: # can be used before initializing the normalizer
         raw_parameters = self.draw_raw_parameters_from_prior(n_samples)
         return self.simulator.simulate_samples(raw_parameters, n_points), raw_parameters
@@ -140,10 +143,10 @@ class Model:
         return self.neural_network.build_posterior(sample_with=sample_with)
 
     # draw parameters from the posterior predicted for some observed sample
-    def draw_parameters_from_predicted_posterior(self, observed_sample : Tensor, n_parameters : int) -> Tensor:
-        if len(observed_sample.shape) == 2:  # (n_points, point_dim)
-            observed_sample = observed_sample.unsqueeze(0)  # -> (1, n_points, point_dim) add a batch dimension
-        return self.posterior.sample((n_parameters,), x=observed_sample)
+    def draw_parameters_from_predicted_posterior(self, observed_samples : Tensor, n_parameters : int) -> Tensor: # also works for multiple observed_samples simultaneously
+        if len(observed_samples.shape) == 2:  # (n_points, point_dim)
+            observed_samples = observed_samples.unsqueeze(0)  # -> (1, n_points, point_dim) add a batch dimension
+        return self.posterior.sample_batched((n_parameters,), x=observed_samples).transpose(0,1) # sbi gives it in a weird order
 
     # used to compare an observed sample with samples produced with parameters drawn from the posterior distribution predicted for the observed sample
     def simulate_data_from_predicted_posterior(self, observed_sample : Tensor, n_samples : int, n_points : int) -> tuple[Tensor, Tensor]:
@@ -154,3 +157,7 @@ class Model:
         data, parameters = self.simulate_data(n_samples=1, n_points=n_points)
         return parameters.squeeze(0), data.squeeze(0)
     
+    def get_true_parameters_simulations_and_sampled_parameters(self, n_true : int, n_points : int, n_sampled_parameters : int) -> tuple[Tensor, Tensor, Tensor]:
+        observed_data, true_parameters = self.simulate_data(n_samples=n_true, n_points=n_points)
+        sampled_parameters = self.draw_parameters_from_predicted_posterior(observed_samples=observed_data, n_parameters=n_sampled_parameters)
+        return true_parameters.squeeze(0), observed_data.squeeze(0), sampled_parameters.squeeze(0)
