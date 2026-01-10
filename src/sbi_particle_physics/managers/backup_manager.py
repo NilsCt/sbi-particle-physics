@@ -1,13 +1,14 @@
 import numpy as np
 import torch
 from torch import Tensor
-from model import Model
-from normalizer import Normalizer
+from sbi_particle_physics.objects.model import Model
+from sbi_particle_physics.objects.normalizer import Normalizer
 import pickle
 from tqdm.notebook import tqdm
 import glob
 from pathlib import Path
-from plotter import Plotter
+from sbi_particle_physics.managers.plotter import Plotter
+from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN
 
 
 class BackupManager:
@@ -16,7 +17,12 @@ class BackupManager:
     """
 
     @staticmethod
-    def save_data(file : str, device, prior_low_raw : Tensor, prior_high_raw : Tensor, raw_data : Tensor, raw_parameters : Tensor, stride : int, pre_N : int, preruns : int):
+    def _data_file_path(directory: Path, index: int) -> Path:
+        filename = DATA_FILE_PATTERN.format(index=index)
+        return directory / filename
+
+    @staticmethod
+    def save_data(file : Path, device, prior_low_raw : Tensor, prior_high_raw : Tensor, raw_data : Tensor, raw_parameters : Tensor, stride : int, pre_N : int, preruns : int):
         torch.save({
         'raw_data': raw_data,
         'raw_parameters': raw_parameters,
@@ -31,27 +37,30 @@ class BackupManager:
         }, file)
 
     @staticmethod
-    def generate_many_data(model : Model, directory : str, start_index : int, amount : int, n_samples : int, n_points : int, prior_low_raw : Tensor, prior_high_raw : Tensor):
+    def generate_many_data(model : Model, directory : Path, start_index : int, amount : int, n_samples : int, n_points : int, prior_low_raw : Tensor, prior_high_raw : Tensor):
         print("Starting to generate data")
+        directory.mkdir(parents=True, exist_ok=True) # create the directory if it doesn't exists
         for i in range(start_index, start_index + amount):
-            location = f"{directory}/data{i}.pt"
+            location = BackupManager._data_file_path(directory, i)
             raw_data, raw_parameters = model.simulate_raw_data(n_samples, n_points)
             BackupManager.save_data(location, model.device, prior_low_raw, prior_high_raw, raw_data, raw_parameters, model.simulator.stride, model.simulator.pre_N, model.simulator.preruns)
 
 
     @staticmethod
-    def _extract_id(filepath : str) -> int:
-        match = filepath.split("data")[-1].split(".pt")[0]
-        return int(match)
+    def _extract_id(filepath: Path) -> int:
+        name = filepath.stem # ex: "epoch_12"
+        _, id_str = name.split("_")
+        return int(id_str)
     
     @staticmethod
-    def detect_files(directory : str) -> list[str]:
-        data_files = sorted(glob.glob(f"{directory}/data*.pt"), key=BackupManager._extract_id)
+    def detect_files(directory : Path) -> list[Path]:
+        pattern = DATA_FILE_PATTERN.format(index="*")
+        data_files = sorted(directory.glob(pattern), key=BackupManager._extract_id)
         return data_files
     
     
     @staticmethod
-    def load_one_file(file : str):
+    def load_one_file(file : Path):
         checkpoint = torch.load(file, weights_only=False)
         file_raw_data = checkpoint['raw_data']
         file_raw_parameters = checkpoint['raw_parameters']
@@ -59,7 +68,7 @@ class BackupManager:
         return file_raw_data, file_raw_parameters, metadata
 
     @staticmethod
-    def load_data(files : list[str]):
+    def load_data(files : list[Path]):
         all_raw_data = []
         all_raw_parameters = []
         metadata = None
@@ -77,7 +86,7 @@ class BackupManager:
     
     
     @staticmethod
-    def calculate_stats(files : list[str], batchsize : int) -> tuple[float, float]:
+    def calculate_stats(files : list[Path], batchsize : int) -> tuple[float, float]:
         mean = 0
         std = 1
         cursor = 0
@@ -91,7 +100,7 @@ class BackupManager:
         return mean / len(files), std / len(files)
     
     @staticmethod
-    def load_and_append_data(model : Model, files : list[str], batchsize : int):
+    def load_and_append_data(model : Model, files : list[Path], batchsize : int):
         cursor = 0
         while cursor < len(files):
             raw_data, raw_parameters, met = BackupManager.load_data(files[cursor: cursor+batchsize])
@@ -101,7 +110,7 @@ class BackupManager:
             model.append_data(data, parameters)
 
     @staticmethod
-    def load_data_and_build_model(directory : str, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None) -> tuple[Model, int]:
+    def load_data_and_build_model(directory : Path, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None) -> tuple[Model, int]:
         # warning: here batchsize corresponds to the number of data files used at a time, not of samples
         # one file contains around 500 samples
         files = BackupManager.detect_files(directory) 
@@ -111,7 +120,7 @@ class BackupManager:
         print(f"{len(files)} files")
         mean, std = BackupManager.calculate_stats(files, batchsize)
         data0, _, metadata = BackupManager.load_one_file(files[0])
-        n_points = data0
+        n_points = data0.shape[1]
         device = torch.device(metadata['device'])
         model = Model(device, seed)
 
@@ -126,15 +135,16 @@ class BackupManager:
     
 
     @staticmethod
-    def save_model(model : Model, file : str):
+    def save_model(model : Model, file : Path):
         save_dict = {
             'device': model.device,
             'rng': model.rng,
             'prior': model.prior, 
-            'stride': model.simulator.stride, # the simulator is not pickleable because of eos
+            'stride': model.simulator.stride,
             'pre_N': model.simulator.pre_N,
             'preruns': model.simulator.preruns,
-            'normalizer': model.normalizer,
+            'data_mean': model.normalizer.data_mean,
+            'data_std': model.normalizer.data_std,
             'posterior': model.posterior,
             'neural_network': model.neural_network,
             'training_loss': model.training_loss,
@@ -147,8 +157,9 @@ class BackupManager:
         print(f"Model saved to {file}")
 
     @staticmethod
-    def load_model(file : str) -> Model:
-        with Path(file).open("rb") as f:
+    def load_model(file : Path) -> Model:
+        # its better to not pickle compex objects such as class, but instead their variables
+        with file.open("rb") as f:
             save_dict = pickle.load(f)
         device = torch.device(save_dict['device']) # todo marche ?
         model = Model(device)
@@ -156,7 +167,7 @@ class BackupManager:
         model.prior = save_dict['prior']
         stride, pre_N, preruns = save_dict['stride'], save_dict['pre_N'], save_dict['preruns']
         model.set_simulator(stride, pre_N, preruns)
-        model.normalizer = save_dict['normalizer']
+        model.normalizer = Normalizer(save_dict['data_mean'], save_dict['data_std'])
         model.posterior = save_dict['posterior']
         model.neural_network = save_dict['neural_network']
         model.training_loss = save_dict['training_loss']
@@ -165,23 +176,24 @@ class BackupManager:
         return model
     
     @staticmethod
-    def _extract_epoch(filepath : str) -> int:
-        match = filepath.split("epoch_")[-1].split(".pkl")[0]
-        return int(match)
+    def _extract_epoch(filepath: Path) -> int:
+        name = filepath.stem  # ex: "epoch_12"
+        _, epoch_str = name.split("_")
+        return int(epoch_str)
 
     @staticmethod
-    def _get_corresponding_file(directory : str, epoch : int | None) -> str:
-        files = glob.glob(f"{directory}/epoch_*.pkl")
+    def _get_corresponding_file(directory: Path, epoch: int | None) -> Path:
+        pattern = MODEL_FILE_PATTERN.format(epoch="*")
+        files = list(directory.glob(pattern))
         if epoch is None:
-            return sorted(files, key=BackupManager._extract_epoch)[-1] # last epoch
-        else:
-            for file in files:
-                if BackupManager._extract_epoch(file) == epoch:
-                    return file
-            raise BaseException(f"No file corresponding to epoch {epoch} in directory {directory}")
+            return max(files, key=BackupManager._extract_epoch) # last epoch
+        for file in files:
+            if BackupManager._extract_epoch(file) == epoch:
+                return file
+        raise FileNotFoundError(f"No file corresponding to epoch {epoch} in directory {directory}")
         
     @staticmethod
-    def load_model_basic(directory : str, epoch : int | None = None) -> Model: # useful method to load more easily a model
+    def load_model_basic(directory : Path, epoch : int | None = None) -> Model: # useful method to load more easily a model
         file  = BackupManager._get_corresponding_file(directory, epoch)
         return BackupManager.load_model(file)
 
@@ -192,22 +204,29 @@ class BackupManager:
         else: return 10    
 
     @staticmethod
-    def train_model_with_backups(model : Model, stop_after_epochs : int, max_epochs : int, directory : str, resume : bool = False, delete_old_backups : bool = False):
+    def _epoch_file_path(directory: Path, epoch: int) -> Path:
+        filename = MODEL_FILE_PATTERN.format(epoch=epoch)
+        return directory / filename
+
+    @staticmethod
+    def train_model_with_backups(model : Model, stop_after_epochs : int, max_epochs : int, directory : Path, resume : bool = False, delete_old_backups : bool = False):
         # resume = True if the neural network has already been partially trained before
         # delete_old_backups = True: the old back up files from previous partial trainings are deleted (replaced by new backups)
+        directory.mkdir(parents=True, exist_ok=True) # creates the directory if it doesn't exists
         epoch = model.neural_network.epoch if resume else 0 # model.neural_network.epoch doesn't work it the neural network hasn't been trained yet
         files = []
         if delete_old_backups:
-            files = sorted(glob.glob(f"{directory}/epoch_*.pkl"), key=BackupManager._extract_epoch)
+            pattern = MODEL_FILE_PATTERN.format(epoch="*")
+            files = sorted(directory.glob(pattern), key=BackupManager._extract_epoch,)
         print("Start of training")
         while epoch < max_epochs:
             epoch += BackupManager._epochs_step(epoch)
             model.train(max_num_epochs=epoch-1, stop_after_epochs=stop_after_epochs, resume_training=resume) # -1 otherwise epoch and real number of epochs trained doesn't match (because of sbi...)
-            if not resume: resume = True
+            resume = True
             real_epoch = model.neural_network.epoch
-            name = f"{directory}/epoch_{real_epoch}.pkl"
+            name = BackupManager._epoch_file_path(directory, real_epoch)
             BackupManager.save_model(model, name)
-            Plotter.plot_loss(model, f"{directory}/loss")
+            Plotter.plot_loss(model, directory / "loss")
             files.append(name)
             if len(files) > 2: # we only keep the last 2 backups (because it takes a lot of space)
                 Path(files[0]).unlink()

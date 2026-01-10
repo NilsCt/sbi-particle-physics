@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import torch
 from torch import Tensor
-from model import Model
-from plotter import Plotter
+from sbi_particle_physics.objects.model import Model
+from sbi_particle_physics.managers.plotter import Plotter
 import numpy as np
 from sbi.diagnostics import run_sbc
 from sbi.analysis.plot import sbc_rank_plot
@@ -14,6 +14,7 @@ from sbi.diagnostics.misspecification import calc_misspecification_mmd
 from sbi.diagnostics.lc2st import LC2ST
 from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
+from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE
 
 class ModelDiagnostics:
     """
@@ -337,7 +338,7 @@ class ModelDiagnostics:
                 linewidth=2,
             )
 
-            ax.tick_params(labelsize=Plotter.tick_fontsize)
+            ax.tick_params(labelsize=TICK_FONTSIZE)
             ax.grid(True, alpha=0.3)
 
         # Hide unused axes
@@ -353,7 +354,7 @@ class ModelDiagnostics:
             handles=handles,
             loc="upper center",
             ncol=2,
-            fontsize=Plotter.legend_fontsize,
+            fontsize=LEGEND_FONTSIZE,
             frameon=False,
         )
 

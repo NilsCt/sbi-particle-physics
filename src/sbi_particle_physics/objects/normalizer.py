@@ -13,13 +13,13 @@ class Normalizer:
     to encode the periodicity (phi near -pi should be similar to phi near pi)
     """
 
-    def __init__(self, data_mean : float, data_std : float):
+    def __init__(self, data_mean : Tensor, data_std : Tensor):
         #formated_data = Normalizer.format_phi(raw_data)
         #self.data_mean = formated_data.mean(dim=(0,1)) # shape (point_dim) (average along q^2, cos theta_d,...)
         #self.data_std = formated_data.std(dim=(0,1))
 
-        self.data_mean : float = data_mean
-        self.data_std : float = data_std
+        self.data_mean = data_mean # todo etre sur que les shape sont biens
+        self.data_std = data_std
  
     
     @staticmethod

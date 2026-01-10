@@ -3,3 +3,6 @@ data/
 sbi-logs/
 __pycache__/
 nohup.out
+*.egg-info/
+.vscode/
+.venv/

@@ -1,7 +1,7 @@
-from model import Model
+from sbi_particle_physics.objects.model import Model
 import torch
 import numpy as np
-from normalizer import Normalizer
+from sbi_particle_physics.objects.normalizer import Normalizer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = Model(device)

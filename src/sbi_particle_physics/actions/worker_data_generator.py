@@ -1,11 +1,12 @@
 import torch
-from model import Model
-from backup_manager import BackupManager
+from sbi_particle_physics.objects.model import Model
+from sbi_particle_physics.managers.backup_manager import BackupManager
 import argparse
+from pathlib import Path
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("directory", type=str) # data/main2
+parser.add_argument("directory", type=Path) # data/data_2
 parser.add_argument("start_index", type=int) # 0
 parser.add_argument("amount", type=int) # 10
 parser.add_argument("n_samples", type=int) # 500

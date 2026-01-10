@@ -1,20 +1,15 @@
 import matplotlib.pyplot as plt
 from sbi.analysis import plot_summary
-from model import Model
+from sbi_particle_physics.objects.model import Model
 import numpy as np
 from torch import Tensor
 from sbi.inference import NPE
+from sbi_particle_physics.config import AXIS_FONTSIZE, LEGEND_FONTSIZE, TICK_FONTSIZE, DATA_LABELS, PARAMETERS_LABEL
 
 class Plotter:
     """
     Make plots to visualize the data, the predictions, etc.
     """
-
-    axis_fontsize = 21
-    legend_fontsize = 15
-    tick_fontsize = 15     
-    data_labels = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
-    parameters_labels = ["$C_9$"]   
 
     @staticmethod
     def plot_a_sample_1D(sample : Tensor, parameter : Tensor, label : str):
@@ -26,16 +21,16 @@ class Plotter:
             alpha=0.7,
             label=f"$C_9={parameter.item():.3f}$"
         )
-        ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
-        ax.tick_params(labelsize=Plotter.tick_fontsize)
+        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE)
+        ax.tick_params(labelsize=TICK_FONTSIZE)
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=Plotter.legend_fontsize)
+        ax.legend(fontsize=LEGEND_FONTSIZE)
         plt.tight_layout()
         plt.show()
 
     @staticmethod
     def plot_a_sample(sample : Tensor, parameter : Tensor):
-        for i,label in enumerate(Plotter.data_labels):
+        for i,label in enumerate(DATA_LABELS):
             Plotter.plot_a_sample_1D(sample[:,i], parameter, label)
 
 
@@ -49,10 +44,10 @@ class Plotter:
         fig, ax = plt.subplots(figsize=(8,3))
         ax.plot(range(1, len(values1)+1), values1, label="Training")
         ax.plot(range(1, len(values2)+1), values2, label="Validation")
-        ax.set_xlabel("Epoch", fontsize=Plotter.axis_fontsize)
-        ax.set_ylabel("Loss", fontsize=Plotter.axis_fontsize)
-        ax.legend(fontsize=Plotter.legend_fontsize)
-        ax.tick_params(labelsize=Plotter.tick_fontsize)
+        ax.set_xlabel("Epoch", fontsize=AXIS_FONTSIZE)
+        ax.set_ylabel("Loss", fontsize=AXIS_FONTSIZE)
+        ax.legend(fontsize=LEGEND_FONTSIZE)
+        ax.tick_params(labelsize=TICK_FONTSIZE)
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
         return fig
@@ -80,17 +75,17 @@ class Plotter:
             color="green",
             label="posterior"
         )
-        ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
-        ax.tick_params(labelsize=Plotter.tick_fontsize)
+        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE)
+        ax.tick_params(labelsize=TICK_FONTSIZE)
         ax.grid(True, alpha=0.3)
         ax.axvline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
-        ax.legend(fontsize=Plotter.legend_fontsize)
+        ax.legend(fontsize=LEGEND_FONTSIZE)
         plt.tight_layout()
         plt.show()
 
     @staticmethod
     def plot_a_posterior(sampled_parameters : Tensor, true_value : Tensor):
-        for i,label in enumerate(Plotter.parameters_labels):
+        for i,label in enumerate(PARAMETERS_LABEL):
             Plotter.plot_a_posterior_parameter(sampled_parameters[:,i], label, true_value[i])
 
     
@@ -113,10 +108,10 @@ class Plotter:
                 color="blue",
                 density=True
             )
-        ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
-        ax.tick_params(labelsize=Plotter.tick_fontsize)
+        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE)
+        ax.tick_params(labelsize=TICK_FONTSIZE)
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=Plotter.legend_fontsize)
+        ax.legend(fontsize=LEGEND_FONTSIZE)
         plt.tight_layout()
         plt.show()
 
@@ -124,7 +119,7 @@ class Plotter:
     @staticmethod
     def plot_similar_data(model : Model, observed_sample : Tensor, n_samples : int, n_points : int):
         similar_data, similar_parameters = model.simulate_data_from_predicted_posterior(observed_sample, n_samples, n_points)
-        for i,label in enumerate(Plotter.data_labels):
+        for i,label in enumerate(DATA_LABELS):
             Plotter.plot_similar_data_1D(observed_sample[:,i], similar_data[:,:,i], label)
 
     @staticmethod
@@ -146,7 +141,7 @@ class Plotter:
         fig, axes = plt.subplots(2, 2, figsize=(14, 10))
         axes = axes.flatten()
 
-        for obs_idx, label in enumerate(Plotter.data_labels):
+        for obs_idx, label in enumerate(DATA_LABELS):
             ax = axes[obs_idx]
 
             for i, sample_idx in enumerate(selected_indices):
@@ -162,11 +157,11 @@ class Plotter:
                     density=True
                 )
 
-            ax.set_xlabel(label, fontsize=Plotter.axis_fontsize)
-            ax.set_ylabel("Density", fontsize=Plotter.axis_fontsize)
-            ax.tick_params(labelsize=Plotter.tick_fontsize)
+            ax.set_xlabel(label, fontsize=AXIS_FONTSIZE)
+            ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE)
+            ax.tick_params(labelsize=TICK_FONTSIZE)
             ax.grid(True, alpha=0.3)
-            ax.legend(fontsize=Plotter.legend_fontsize)
+            ax.legend(fontsize=LEGEND_FONTSIZE)
 
         plt.tight_layout()
         plt.show()

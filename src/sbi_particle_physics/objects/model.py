@@ -1,14 +1,17 @@
 import torch
 from torch import Tensor
 import numpy as np
-from simulator import Simulator
-from normalizer import Normalizer
+from sbi_particle_physics.objects.simulator import Simulator
+from sbi_particle_physics.objects.normalizer import Normalizer
 from sbi.inference import NPE
 from sbi.neural_nets import posterior_nn
 from sbi.neural_nets.embedding_nets import FCEmbedding, PermutationInvariantEmbedding
 from sbi.utils import BoxUniform
 from matplotlib.pylab import RandomState
+from sbi_particle_physics.config import ENCODED_POINT_DIM, DEFAULT_TRIAL_EMBEDDING_DIM, DEFAULT_TRIAL_NUM_LAYERS, DEFAULT_AGGREGATED_NUM_HIDDENS, DEFAULT_AGGREGATED_NUM_LAYERS, DEFAULT_AGGREGATED_OUTPUT_DIM, DEFAULT_NSF_HIDDEN_FEATURES, DEFAULT_NSF_NUM_BINS, DEFAULT_NSF_NUM_TRANSFORMS, DEFAULT_TRIAL_NUM_HIDDENS, DEFAULT_SAMPLE_WITH
 
+# conda activate mlhep
+# pip install -e .
 
 class Model:
     """
@@ -23,7 +26,6 @@ class Model:
     Then it is possible to add simulations with append_data()
     And to train the neural network with it using train()
     """
-    encoded_point_dim = 5
 
     def __init__(self, device, seed : int = None):
         self.device = device
@@ -63,7 +65,7 @@ class Model:
               nsf_hidden_features : int, nsf_num_transforms : int, nsf_num_bins : int): 
         
         single_trial_net = FCEmbedding(
-            input_dim=Model.encoded_point_dim,
+            input_dim=ENCODED_POINT_DIM,
             num_layers=trial_num_layers,
             num_hiddens=trial_num_hiddens,
             output_dim=trial_embedding_dim
@@ -94,15 +96,15 @@ class Model:
 
     def build_default(self):
         self.build(
-            trial_num_layers=2,
-            trial_num_hiddens=64,
-            trial_embedding_dim=64,
-            aggregated_num_layers=2,
-            aggregated_num_hiddens=64,
-            aggregated_output_dim=128,
-            nsf_hidden_features=128, 
-            nsf_num_transforms=10,
-            nsf_num_bins=8
+            trial_num_layers=DEFAULT_TRIAL_NUM_LAYERS,
+            trial_num_hiddens=DEFAULT_TRIAL_NUM_HIDDENS,
+            trial_embedding_dim=DEFAULT_TRIAL_EMBEDDING_DIM,
+            aggregated_num_layers=DEFAULT_AGGREGATED_NUM_LAYERS,
+            aggregated_num_hiddens=DEFAULT_AGGREGATED_NUM_HIDDENS,
+            aggregated_output_dim=DEFAULT_AGGREGATED_OUTPUT_DIM,
+            nsf_hidden_features=DEFAULT_NSF_HIDDEN_FEATURES, 
+            nsf_num_transforms=DEFAULT_NSF_NUM_TRANSFORMS,
+            nsf_num_bins=DEFAULT_NSF_NUM_BINS
         )
 
     def draw_raw_parameters_from_prior(self, n_parameters : int) -> Tensor:
@@ -134,7 +136,7 @@ class Model:
         self.training_loss.extend(self.neural_network.summary["training_loss"][-new:])
         self.validation_loss.extend(self.neural_network.summary["validation_loss"][-new:]) # I store the losses because sbi reset them every time the training is resumed
         
-        self.posterior = self.neural_network.build_posterior(sample_with='direct') 
+        self.posterior = self.neural_network.build_posterior(sample_with=DEFAULT_SAMPLE_WITH) 
     # direct : faster but less precise, used for diagnostics
     # rejection : compromise between direct and mcmc, used for the final version
     # mcmc : the most precise, but extremely slow, used for the final version if unlimited time is available

@@ -1,17 +1,16 @@
 import matplotlib.pyplot as plt
 import torch
 from torch import Tensor
-from model import Model
-from plotter import Plotter
+from sbi_particle_physics.objects.model import Model
+from sbi_particle_physics.managers.plotter import Plotter
 import numpy as np
+from sbi_particle_physics.config import AXIS_FONTSIZE, LEGEND_FONTSIZE, TICK_FONTSIZE, ENCODED_DATA_LABELS
 
 
 class DataDiagnostics:
     """
     Test, quantify and visualize the relevance of the data generated
     """
-
-    observables = ["$q^2$", "$\\cos \\theta_l$", "$\\cos \\theta_d$", "$\\cos \\phi$", "$\\sin \\phi$"]
 
     @staticmethod
     def _unicity(x: torch.Tensor, tol: float = 1e-3) -> dict:
@@ -88,11 +87,11 @@ class DataDiagnostics:
                 alpha=0.3
             )
             plt.axhline(0, color="black", lw=0.5)
-            plt.title(DataDiagnostics.observables[i], fontsize=Plotter.axis_fontsize)
-            plt.xlabel("Lag", fontsize=Plotter.axis_fontsize)
-            plt.ylabel("$\\rho$", fontsize=Plotter.axis_fontsize)
+            plt.title(ENCODED_DATA_LABELS[i], fontsize=AXIS_FONTSIZE)
+            plt.xlabel("Lag", fontsize=AXIS_FONTSIZE)
+            plt.ylabel("$\\rho$", fontsize=AXIS_FONTSIZE)
             plt.grid(alpha=0.3)
-            plt.legend(fontsize=Plotter.legend_fontsize)
+            plt.legend(fontsize=LEGEND_FONTSIZE)
             plt.show()
 
         ess_per_obs = [

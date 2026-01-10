@@ -5,6 +5,7 @@ import numpy as np
 from tqdm.notebook import tqdm
 import logging
 from matplotlib.pylab import RandomState
+from sbi_particle_physics.config import EOS_KINEMATICS, EOS_OPTIONS, EOS_DECAY, EOS_PARAMETER
 
 
 class Simulator:
@@ -22,27 +23,13 @@ class Simulator:
         self.preruns : int = preruns
         self.rng : RandomState = rng
 
-        self.eos_kinematics = eos.Kinematics({
-            's':             2.0,   's_min':             1,       's_max' :            8.0,
-            'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
-            'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
-            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
-        })
-
-        self.eos_options = eos.Options({
-            'l': 'mu',
-            'q': 'd',
-            'model': 'WET',
-            'debug': 'false',
-            'logging': 'quiet',
-            'log-level': 'off',
-            
-        })
+        self.eos_kinematics = eos.Kinematics(EOS_KINEMATICS)
+        self.eos_options = eos.Options(EOS_OPTIONS)
 
         self.eos_parameters = eos.Parameters()
         
         self.distribution = eos.SignalPDF.make(
-            'B->K^*ll::d^4Gamma@LowRecoil',
+            EOS_DECAY,
             self.eos_parameters, # arbitrary value
             self.eos_kinematics,
             self.eos_options
@@ -73,5 +60,5 @@ class Simulator:
         return torch.stack(raw_data)
 
     def set_eos_parameter(self, raw_parameter : Tensor):
-        self.eos_parameters.set("b->smumu::Re{c9}", raw_parameter[0].item())
+        self.eos_parameters.set(EOS_PARAMETER, raw_parameter[0].item())
         return self.eos_parameters
