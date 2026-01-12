@@ -22,17 +22,17 @@ class ModelDiagnostics:
     Use conventional diagnostics such as SBC, PPC, Expected coverage, TARP, Missspecification test, LC2ST
     """
 
-    """
-    Simulation-Based Calibration (SBC)
-    Generates parameters θ_i from the prior, simulates data x_i ~ p(x | θ_i),
-    infers posteriors p(θ | x_i), and evaluates the rank of θ_i within each posterior.
-
-    The distribution of ranks should be uniform.
-    Uniform rank histograms, KS tests, and χ² tests are used to detect
-    systematic bias and posterior over- or under-confidence.
-    """
     @staticmethod
     def simulation_based_calibration(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
+        """
+        Simulation-Based Calibration (SBC)
+        Generates parameters θ_i from the prior, simulates data x_i ~ p(x | θ_i),
+        infers posteriors p(θ | x_i), and evaluates the rank of θ_i within each posterior.
+
+        The distribution of ranks should be uniform.
+        Uniform rank histograms, KS tests, and χ² tests are used to detect
+        systematic bias and posterior over- or under-confidence.
+        """
         # x, theta = model.simulate_data(n_samples, n_points)
         ranks, dap_samples = run_sbc(
             theta,
@@ -58,17 +58,17 @@ class ModelDiagnostics:
             x.std(dim=0),
         ], dim=0)  # shape (2, D)
 
-    """
-    Posterior Predictive Checks (PPC)
-    Generates a parameter θ, simulates data x_i ~ p(x | θ),
-    infers posteriors p(θ | x_i), samples θ'_j ~ p(θ | x_i),
-    and simulates posterior predictive data x'_j ~ p(x | θ'_j).
-
-    Compares observed data x_i with posterior predictive data x'_j
-    to assess whether the inferred posteriors can reproduce the observed data.
-    """
     @staticmethod
     def posterior_predictive_checks(model : Model, x_o : Tensor, n_samples : int, n_points : int):
+        """
+        Posterior Predictive Checks (PPC)
+        Generates a parameter θ, simulates data x_i ~ p(x | θ),
+        infers posteriors p(θ | x_i), samples θ'_j ~ p(θ | x_i),
+        and simulates posterior predictive data x'_j ~ p(x | θ'_j).
+
+        Compares observed data x_i with posterior predictive data x'_j
+        to assess whether the inferred posteriors can reproduce the observed data.
+        """
         x_pp, theta_pp = model.simulate_data_from_predicted_posterior(x_o, n_samples, n_points)
         stats_pp = []
         for i in range(x_pp.shape[0]):
@@ -141,17 +141,17 @@ class ModelDiagnostics:
         plt.show()
 
 
-    """
-    Expected Coverage Test (ECT)
-    Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
-    infers posteriors p(θ | x_i), and checks whether θ_i lies
-    within posterior credible intervals at nominal coverage levels.
-
-    The empirical coverage is compared to the nominal coverage
-    to detect posterior over- or under-confidence.
-    """
     @staticmethod
     def expected_coverage_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
+        """
+        Expected Coverage Test (ECT)
+        Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
+        infers posteriors p(θ | x_i), and checks whether θ_i lies
+        within posterior credible intervals at nominal coverage levels.
+
+        The empirical coverage is compared to the nominal coverage
+        to detect posterior over- or under-confidence.
+        """
         #x, theta = model.simulate_data(n_samples, n_points)
         ranks, dap_samples = run_sbc(
             theta,
@@ -171,17 +171,17 @@ class ModelDiagnostics:
         )
         plt.show()
 
-    """
-    TARP Test
-    Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
-    infers posteriors p(θ | x_i), and computes Expected Credible Percentiles (ECP)
-    of the true parameters under the inferred posteriors.
-
-    The ECP distribution should be uniform.
-    Deviations indicate bias or miscalibration of the posterior.
-    """
     @staticmethod
     def tarp_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
+        """
+        TARP Test
+        Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
+        infers posteriors p(θ | x_i), and computes Expected Credible Percentiles (ECP)
+        of the true parameters under the inferred posteriors.
+
+        The ECP distribution should be uniform.
+        Deviations indicate bias or miscalibration of the posterior.
+        """
         # the tarp method returns the ECP values for a given set of alpha coverage levels.
         ecp, alpha = run_tarp(
             theta,
@@ -205,17 +205,16 @@ class ModelDiagnostics:
         # stats_2d: (2, D) -> (2D,)
         return stats_2d.reshape(-1)
 
-    """
-    Misspecification Test
-    Model misspecification occurs when the true data-generating process
-    differs from the assumed model, such that no parameter value
-    can generate data consistent with the observations.
-
-    Misspecification leads to systematically biased or misleading posteriors.
-    """
     @staticmethod
     def misspecification_test(model: Model, x_train: Tensor, x_o: Tensor):
+        """
+        Misspecification Test
+        Model misspecification occurs when the true data-generating process
+        differs from the assumed model, such that no parameter value
+        can generate data consistent with the observations.
 
+        Misspecification leads to systematically biased or misleading posteriors.
+        """
         # summaries: (N, 2, D) -> (N, 2D)
         summaries = torch.stack([
             ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
@@ -252,18 +251,17 @@ class ModelDiagnostics:
         plt.show()
 
 
-
-    """
-    Misspecification Test using MMD
-    Uses Maximum Mean Discrepancy (MMD) to measure the distance
-    between the distribution of observed data and data simulated
-    from the inferred posterior predictive distribution.
-
-    Large MMD values indicate model misspecification,
-    i.e. the model cannot reproduce the observed data distribution.
-    """
     @staticmethod
     def misspecification_test_mmd(model : Model, x_train : Tensor, x_o : Tensor):
+        """
+        Misspecification Test using MMD
+        Uses Maximum Mean Discrepancy (MMD) to measure the distance
+        between the distribution of observed data and data simulated
+        from the inferred posterior predictive distribution.
+
+        Large MMD values indicate model misspecification,
+        i.e. the model cannot reproduce the observed data distribution.
+        """
         summaries = torch.stack([
             ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
             for x in x_train
@@ -289,9 +287,6 @@ class ModelDiagnostics:
         plt.legend()
         plt.show()
 
-    """
-    Plot many 1D posteriors in a grid to verify the accuracy of the predictions
-    """
     @staticmethod
     def many_posteriors(
         model : Model,
@@ -303,6 +298,9 @@ class ModelDiagnostics:
         figsize_per_plot=(3.0, 2.4),
         savepath: str | None = None,
     ):
+        """
+        Plot many 1D posteriors in a grid to verify the accuracy of the predictions
+        """
         n_plots = n_cols * n_rows
         n_points = 1000
         n_samples = 1000

@@ -18,13 +18,13 @@ class DataDiagnostics:
         unique = torch.unique(x_quant, dim=0)
         return unique.shape[0] / x.shape[0]
 
-    """
-    Taux d'unicité
-    Compte le nombre de points différents
-    (0.95< would be ok, 0.9-0.8 suspect)
-    """
     @staticmethod
     def data_unicity(data : Tensor, parameters : Tensor):
+        """
+        Taux d'unicité
+        Compte le nombre de points différents
+        (0.95< would be ok, 0.9-0.8 suspect)
+        """
         parameters_uni = DataDiagnostics._unicity(parameters)
         data_unis = []
         for i in range(data.shape[0]):
@@ -69,12 +69,12 @@ class DataDiagnostics:
         idx = torch.where(ac < threshold)[0]
         return idx[0].item() if len(idx) > 0 else None
 
-    """
-    Autocorrélation, Effective Sample Size (ESS)
-    Tests si des points consécutifs sont corrélés
-    """
     @staticmethod
     def data_autocorrelation(data : Tensor, lag_zoom : int = 20):
+        """
+        Autocorrélation, Effective Sample Size (ESS)
+        Tests si des points consécutifs sont corrélés
+        """
         mean_ac, std_ac = DataDiagnostics._dataset_autocorr(data)
         d, max_lag = mean_ac.shape
         for i in range(d):

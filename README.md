@@ -40,7 +40,7 @@ Forward model wrapping the EOS library. Samples 4D decay kinematics $(q^2, \cos 
 ### `Normalizer` (normalizer.py)
 Transforms data for neural network efficiency. Applies z-score normalization to kinematic variables and encodes the periodic angle $\phi$ as $(\cos \phi, \sin \phi)$ to preserve periodicity. Each event becomes a 5D vector.
 
-### `BackupManager` (backup_manager.py)
+### `Backup` (backup.py)
 Handles data persistence and model checkpointing. Supports batch loading of large simulated datasets, incremental training with resumption, and model serialization. Critical for managing ~250 data files totaling 125k simulated samples.
 
 ### `Diagnostics` (diagnostics.py)

@@ -1,6 +1,6 @@
 import torch
 from sbi_particle_physics.objects.model import Model
-from sbi_particle_physics.managers.backup_manager import BackupManager
+from sbi_particle_physics.managers.backup import Backup
 import argparse
 from pathlib import Path
 
@@ -25,4 +25,4 @@ model.set_prior(prior_low_raw, prior_high_raw)
 model.set_simulator(stride=args.stride, pre_N=args.pre_N, preruns=args.preruns)
 # not necessary to build the nn
 
-BackupManager.generate_many_data(model, directory=args.directory, start_index=args.start_index, amount=args.amount, n_samples=args.n_samples, n_points=args.n_points, prior_low_raw=prior_low_raw, prior_high_raw=prior_high_raw)
+Backup.generate_many_data(model, directory=args.directory, start_index=args.start_index, amount=args.amount, n_samples=args.n_samples, n_points=args.n_points, prior_low_raw=prior_low_raw, prior_high_raw=prior_high_raw)
