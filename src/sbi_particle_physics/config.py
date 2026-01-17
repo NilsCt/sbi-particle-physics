@@ -21,6 +21,7 @@ DATA_LABELS = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
 ENCODED_DATA_LABELS = ["$q^2$", "$\\cos \\theta_l$", "$\\cos \\theta_d$", "$\\cos \\phi$", "$\\sin \\phi$"]
 ENCODED_POINT_DIM = 5 # q^2, \cos \theta_l, \cos \theta_d, \cos \phi, \sin \phi
 PARAMETERS_LABEL = ["$C_9$"]
+PARAMETERS_DIM = 1
 
 # EOS
 EOS_KINEMATICS = {

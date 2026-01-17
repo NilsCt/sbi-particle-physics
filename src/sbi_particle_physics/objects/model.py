@@ -9,6 +9,7 @@ from sbi.neural_nets.embedding_nets import FCEmbedding, PermutationInvariantEmbe
 from sbi.utils import BoxUniform
 from matplotlib.pylab import RandomState
 from sbi_particle_physics.config import ENCODED_POINT_DIM, DEFAULT_TRIAL_EMBEDDING_DIM, DEFAULT_TRIAL_NUM_LAYERS, DEFAULT_AGGREGATED_NUM_HIDDENS, DEFAULT_AGGREGATED_NUM_LAYERS, DEFAULT_AGGREGATED_OUTPUT_DIM, DEFAULT_NSF_HIDDEN_FEATURES, DEFAULT_NSF_NUM_BINS, DEFAULT_NSF_NUM_TRANSFORMS, DEFAULT_TRIAL_NUM_HIDDENS, DEFAULT_SAMPLE_WITH
+from pathlib import Path
 
 # conda activate mlhep
 # pip install -e .
@@ -29,8 +30,8 @@ class Model:
 
     def __init__(self, device, seed : int = None):
         self.device = device
-        if seed is None: seed = np.random.randint(0, 10000)
-        self.rng : RandomState = np.random.mtrand.RandomState(seed)
+        self.seed = np.random.randint(0, 10000) if seed is None else seed
+        self.rng : RandomState = np.random.mtrand.RandomState(self.seed)
         self.prior = None
         self.simulator : Simulator = None
         self.normalizer : Normalizer = None
@@ -38,6 +39,22 @@ class Model:
         self.posterior = None
         self.training_loss : list[float] = []
         self.validation_loss : list[float] = []
+        self.epoch : int = 0
+        self.data_files_paths : list[Path] = [] # list and not set to keep order (deterministic loading if needed)
+        self.max_n_points : int | None = None
+
+        self.trial_num_layers : int = None
+        self.trial_num_hiddens : int = None
+        self.trial_embedding_dim : int = None
+        self.aggregated_num_layers : int = None
+        self.aggregated_num_hiddens : int = None
+        self.aggregated_output_dim : int = None
+        self.nsf_hidden_features : int = None
+        self.nsf_num_transforms : int = None
+        self.nsf_num_bins : int = None
+        self.model_type = "nsf" # I only implement that for now
+        self.z_score_x = "none"
+        self.prior_type = "uniform"
 
     def to_tensor(self, x, dtype=torch.float32) -> Tensor:
         return torch.as_tensor(x, dtype=dtype, device=self.device)
@@ -46,7 +63,7 @@ class Model:
         # low and high are raw since the normalization has not been done yet when this function is called
         self.prior = BoxUniform(low=raw_low, high=raw_high, device=self.device)
 
-    def set_prior_basic(self, raw_low : list[float], raw_high : list[float]):
+    def set_prior_basic(self, raw_low : list[float] | np.ndarray, raw_high : list[float] | np.ndarray):
         low = self.to_tensor(raw_low)
         high = self.to_tensor(raw_high)
         self.set_prior(low, high)
@@ -54,7 +71,7 @@ class Model:
     def set_simulator(self, stride : int, pre_N : int, preruns : int):
         self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns)
 
-    def set_normalizer(self, data_mean : float, data_std : float):
+    def set_normalizer(self, data_mean : Tensor, data_std : Tensor):
         self.normalizer = Normalizer(data_mean, data_std)
 
     def set_normalizer_with_data(self, raw_data : Tensor):
@@ -64,6 +81,16 @@ class Model:
               aggregated_num_layers : int, aggregated_num_hiddens : int, aggregated_output_dim : int,
               nsf_hidden_features : int, nsf_num_transforms : int, nsf_num_bins : int): 
         
+        self.trial_num_layers = trial_num_layers
+        self.trial_num_hiddens = trial_num_hiddens
+        self.trial_embedding_dim = trial_embedding_dim
+        self.aggregated_num_layers = aggregated_num_layers
+        self.aggregated_num_hiddens = aggregated_num_hiddens
+        self.aggregated_output_dim = aggregated_output_dim
+        self.nsf_hidden_features = nsf_hidden_features
+        self.nsf_num_transforms = nsf_num_transforms
+        self.nsf_num_bins = nsf_num_bins
+
         single_trial_net = FCEmbedding(
             input_dim=ENCODED_POINT_DIM,
             num_layers=trial_num_layers,
@@ -80,12 +107,12 @@ class Model:
         )
 
         density_estimator = posterior_nn(
-            model='nsf',
+            model=self.model_type,
             hidden_features=nsf_hidden_features,
             num_transforms=nsf_num_transforms,
             num_bins=nsf_num_bins,
             embedding_net=embedding_net,
-            z_score_x='none'  #  no normalization since I already do that
+            z_score_x=self.z_score_x  #  no normalization since I already do that
         )
 
         self.neural_network = NPE(
@@ -126,16 +153,27 @@ class Model:
         raw_data = self.simulator.simulate_samples(raw_parameters, n_points)
         return self.normalizer.normalize_data(raw_data) 
     
-    def append_data(self, data : Tensor, parameters : Tensor):
+    @staticmethod
+    def _extend_unique_paths(base: list[Path], new: list[Path]) -> list[Path]:
+        seen = set(base)
+        for p in new:
+            if p not in seen:
+                base.append(p)
+                seen.add(p)
+        return base
+    
+    def append_data(self, data : Tensor, parameters : Tensor, files : list[Path] | None = None):
         self.neural_network.append_simulations(parameters, data)
+        if files is not None:
+            Model._extend_unique_paths(self.data_files_paths, files)
 
     def train(self, stop_after_epochs : int, max_num_epochs : int, resume_training : bool = False):  
-        before = len(self.validation_loss)
+        before = len(self.validation_loss) # todo mettre self.epoch ?
         self.neural_network.train(stop_after_epochs=stop_after_epochs, max_num_epochs=max_num_epochs, resume_training=resume_training)
-        new = self.neural_network.epoch - before
+        self.epoch = self.neural_network.epoch
+        new = self.epoch - before
         self.training_loss.extend(self.neural_network.summary["training_loss"][-new:])
         self.validation_loss.extend(self.neural_network.summary["validation_loss"][-new:]) # I store the losses because sbi reset them every time the training is resumed
-        
         self.posterior = self.neural_network.build_posterior(sample_with=DEFAULT_SAMPLE_WITH) 
     # direct : faster but less precise, used for diagnostics
     # rejection : compromise between direct and mcmc, used for the final version

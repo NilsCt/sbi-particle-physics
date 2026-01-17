@@ -18,8 +18,10 @@ class Normalizer:
         #self.data_mean = formated_data.mean(dim=(0,1)) # shape (point_dim) (average along q^2, cos theta_d,...)
         #self.data_std = formated_data.std(dim=(0,1))
 
-        self.data_mean = data_mean # todo etre sur que les shape sont biens
+        self.data_mean = data_mean
         self.data_std = data_std
+        self.parameters_mean = None # I don't normalize parameters, but here for potential future use
+        self.parameters_std = None
  
     
     @staticmethod

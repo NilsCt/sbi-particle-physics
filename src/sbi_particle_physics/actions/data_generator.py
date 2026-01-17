@@ -4,9 +4,9 @@ from sbi_particle_physics.config import DATA_DIR, DEFAULT_POINTS_PER_SAMPLE, DEF
 # I should not forget to activate the conda environment before executing this file
 
 directory = DATA_DIR / "data_3"
-start_index = 800
-amount_per_worker = 20
-amount_of_workers = 40 # NE PAS DÉPASSER 75
+start_index = 2504
+amount_per_worker = 2
+amount_of_workers = 60 # NE PAS DÉPASSER 75
 
 n_samples = 50 # per file
 n_points = 10000

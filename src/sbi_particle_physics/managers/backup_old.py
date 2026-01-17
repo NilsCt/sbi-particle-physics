@@ -6,10 +6,10 @@ from sbi_particle_physics.objects.model import Model
 from sbi_particle_physics.objects.normalizer import Normalizer
 import pickle
 from tqdm.notebook import tqdm
+import glob
 from pathlib import Path
 from sbi_particle_physics.managers.plotter import Plotter
-from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN, ENCODED_POINT_DIM, DEFAULT_POINTS_PER_SAMPLE, PARAMETERS_DIM
-import sbi
+from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN
 
 
 class Backup:
@@ -101,21 +101,17 @@ class Backup:
         return mean / len(files), std / len(files)
     
     @staticmethod
-    def load_and_append_data(model : Model, files : list[Path], batchsize : int, max_points : int = None):
+    def load_and_append_data(model : Model, files : list[Path], batchsize : int):
         cursor = 0
         while cursor < len(files):
-            f = files[cursor: cursor+batchsize]
-            raw_data, raw_parameters, met = Backup.load_data(f)
-            if max_points is not None:
-                raw_data = raw_data[:,:max_points]
-                raw_parameters = raw_parameters[:,:max_points]
+            raw_data, raw_parameters, met = Backup.load_data(files[cursor: cursor+batchsize])
             cursor += batchsize
             data = model.normalizer.normalize_data(raw_data)
             parameters = model.normalizer.normalize_parameters(raw_parameters)
-            model.append_data(data, parameters, f)
+            model.append_data(data, parameters)
 
     @staticmethod
-    def load_data_and_build_model(directory : Path, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None, max_points : int = None) -> tuple[Model, int]:
+    def load_data_and_build_model(directory : Path, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None) -> tuple[Model, int]:
         # warning: here batchsize corresponds to the number of data files used at a time, not of samples
         # one file contains around 500 samples
         files = Backup.detect_files(directory) 
@@ -124,7 +120,8 @@ class Backup:
        
         print(f"{len(files)} files")
         mean, std = Backup.calculate_stats(files, batchsize)
-        _, _, metadata = Backup.load_one_file(files[0])
+        data0, _, metadata = Backup.load_one_file(files[0])
+        n_points = data0.shape[1]
         device = torch.device(metadata['device'])
         model = Model(device, seed)
 
@@ -134,8 +131,8 @@ class Backup:
         model.set_simulator(stride, pre_N, preruns)
         model.set_normalizer(mean, std)
         model.build_default() 
-        Backup.load_and_append_data(model, files, batchsize, max_points)
-        return model
+        Backup.load_and_append_data(model, files, batchsize)
+        return model, n_points # todo traiter mieux n_points
     
 
     @staticmethod
@@ -145,52 +142,18 @@ class Backup:
         #neural_network._prior_masks = []
         #neural_network._proposal_roundwise = []
         save_dict = {
-            'device': model.device, # utils
-            'seed': model.seed,
-
-            'prior_type' : model.prior_type, # prior
-            'prior_low': model.prior.low.cpu().numpy(),
-            'prior_high': model.prior.high.cpu().numpy(),
-
-            'stride': model.simulator.stride, # simulator
+            'device': model.device,
+            'rng': model.rng,
+            'prior': model.prior, 
+            'stride': model.simulator.stride,
             'pre_N': model.simulator.pre_N,
             'preruns': model.simulator.preruns,
-
-            'data_mean': model.normalizer.data_mean.cpu().numpy(), # normalizer
-            'data_std': model.normalizer.data_std.cpu().numpy(),
-            'parameters_mean': model.normalizer.parameters_mean,
-            'parameters_std': model.normalizer.parameters_std,
-
-            'training_loss': model.training_loss, # training
-            'validation_loss': model.validation_loss,
-            'epoch': model.neural_network.epoch,
-
-            'trial_num_layers': model.trial_num_layers, # architecture
-            'trial_num_hiddens': model.trial_num_hiddens,
-            'trial_embedding_dim': model.trial_embedding_dim,
-            'aggregated_num_layers': model.aggregated_num_layers,
-            'aggregated_num_hiddens': model.aggregated_num_hiddens,
-            'aggregated_output_dim': model.aggregated_output_dim,
-            'nsf_hidden_features': model.nsf_hidden_features,
-            'nsf_num_transforms': model.nsf_num_transforms,
-            'nsf_num_bins': model.nsf_num_bins,
-
-            'model_type': model.model_type, # for now constant information
-            'z_score_x': model.z_score_x,
-
-            'posterior' : model.posterior, # sbi object for inference
-
-            'sbi_version' : sbi.__version__, # versions
-            'torch_version' : torch.__version__,
-
-            'weights': model.neural_network._neural_net.state_dict(), # weights
-
-            'optimizer_state_dict': model.neural_network.optimizer.state_dict(), # optimizer
-            # si version finale, il est plus courant de ne pas stocke l'optimizer (qui prend autant de place que le réseau)
-            # qui n'est plus utilisé et qui peut poser des problèmes lors du loading
-
-            'data_files_paths': [str(x) for x in model.data_files_paths], # data
-            'max_n_points': model.max_n_points
+            'data_mean': model.normalizer.data_mean,
+            'data_std': model.normalizer.data_std,
+            'posterior': model.posterior,
+            'neural_network': model.neural_network,
+            'training_loss': model.training_loss,
+            'validation_loss': model.validation_loss
         }
         path = Path(file)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -199,70 +162,22 @@ class Backup:
         print(f"Model saved to {file}")
 
     @staticmethod
-    def _load_util(file : Path) -> tuple[Model, dict]:
+    def load_model(file : Path) -> Model:
         # its better to not pickle compex objects such as class, but instead their variables
         with file.open("rb") as f:
             save_dict = pickle.load(f)
-        device = torch.device(save_dict['device'])
-        seed = save_dict['seed']
-        model = Model(device, seed)
-        model.max_n_points = save_dict.get('max_n_points', None)
-
-        model.prior_type = save_dict['prior_type']
-        model.set_prior_basic(save_dict['prior_low'], save_dict['prior_high'])
-
+        device = torch.device(save_dict['device']) # todo marche ?
+        model = Model(device)
+        model.rng = save_dict['rng']
+        model.prior = save_dict['prior']
         stride, pre_N, preruns = save_dict['stride'], save_dict['pre_N'], save_dict['preruns']
         model.set_simulator(stride, pre_N, preruns)
-
-        data_mean = model.to_tensor(save_dict['data_mean'])
-        data_std = model.to_tensor(save_dict['data_std'])
-        model.set_normalizer(data_mean, data_std)
-
-        model.data_files_paths = [Path(x) for x in save_dict['data_files_paths']]
-
+        model.normalizer = Normalizer(save_dict['data_mean'], save_dict['data_std'])
+        model.posterior = save_dict['posterior']
+        model.neural_network = save_dict['neural_network']
         model.training_loss = save_dict['training_loss']
         model.validation_loss = save_dict['validation_loss']
-
-        model.posterior = save_dict['posterior']
-
         print(f"Model loaded from {file}")
-        return model, save_dict
-
-    @staticmethod
-    def load_model_for_inference(file : Path) -> Model:
-        # when loaded for inference, neural_nework can't be used, can't be trained, new posteriors can't be created
-        # only other variables and model.posterior are loaded
-        model, _ = Backup._load_util(file)
-        return model
-
-    @staticmethod
-    def load_model_for_training(file : Path, load_back_data : bool = True, batchsize : int = 1, first_file : Path = None) -> Model:
-        # if load_back_data is False, first_file must be specified (to load data from and do a dummy epoch to initialize the nn)
-        model, save_dict = Backup._load_util(file)
-
-        model.build(
-            trial_num_layers=save_dict['trial_num_layers'],
-            trial_num_hiddens=save_dict['trial_num_hiddens'],
-            trial_embedding_dim=save_dict['trial_embedding_dim'],
-            aggregated_num_layers=save_dict['aggregated_num_layers'],
-            aggregated_num_hiddens=save_dict['aggregated_num_hiddens'],
-            aggregated_output_dim=save_dict['aggregated_output_dim'],
-            nsf_hidden_features=save_dict['nsf_hidden_features'],
-            nsf_num_transforms=save_dict['nsf_num_transforms'],
-            nsf_num_bins=save_dict['nsf_num_bins']
-        )
-
-        if load_back_data:
-            Backup.load_and_append_data(model, model.data_files_paths, batchsize=batchsize, max_points=model.max_n_points)
-        elif first_file is not None:
-            Backup.load_and_append_data(model, [first_file], batchsize=batchsize, max_points=model.max_n_points)
-        model.neural_network.train(max_num_epochs=1) # otherwise _neural_net is not initialized and the weights can't be loaded
-
-        model.neural_network.epoch = save_dict['epoch']
-        model.neural_network._neural_net.load_state_dict(save_dict['weights'])
-
-        model.neural_network.optimizer.load_state_dict(save_dict['optimizer_state_dict'])
-
         return model
     
     @staticmethod
@@ -283,15 +198,9 @@ class Backup:
         raise FileNotFoundError(f"No file corresponding to epoch {epoch} in directory {directory}")
         
     @staticmethod
-    def load_model_for_inference_basic(directory : Path, epoch : int | None = None) -> Model: # useful method to load more easily a model
+    def load_model_basic(directory : Path, epoch : int | None = None) -> Model: # useful method to load more easily a model
         file  = Backup._get_corresponding_file(directory, epoch)
-        return Backup.load_model_for_inference(file)
-
-    @staticmethod
-    def load_model_for_training_basic(directory : Path, epoch : int | None = None, load_back_data : bool = True, batchsize : int = 1) -> Model: # useful method to load more easily a model
-        file  = Backup._get_corresponding_file(directory, epoch)
-        return Backup.load_model_for_training(file, load_back_data=load_back_data, batchsize=batchsize)
-
+        return Backup.load_model(file)
 
     @staticmethod
     def _epochs_step(epochs : int):
@@ -310,6 +219,7 @@ class Backup:
         # delete_old_backups = True: the old back up files from previous partial trainings are deleted (replaced by new backups)
         directory.mkdir(parents=True, exist_ok=True) # creates the directory if it doesn't exists
         epoch = model.neural_network.epoch if resume else 0 # model.neural_network.epoch doesn't work it the neural network hasn't been trained yet
+        # todo mettre model.epoch ?
         files = []
         if delete_old_backups:
             pattern = MODEL_FILE_PATTERN.format(epoch="*")
@@ -319,7 +229,7 @@ class Backup:
             epoch += Backup._epochs_step(epoch)
             model.train(max_num_epochs=epoch-1, stop_after_epochs=stop_after_epochs, resume_training=resume) # -1 otherwise epoch and real number of epochs trained doesn't match (because of sbi...)
             resume = True
-            real_epoch = model.epoch
+            real_epoch = model.neural_network.epoch
             name = Backup._epoch_file_path(directory, real_epoch)
             Backup.save_model(model, name)
             Plotter.plot_loss(model, directory / "loss")

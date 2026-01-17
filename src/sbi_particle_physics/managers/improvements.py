@@ -55,7 +55,8 @@ class Improvements:
         elif name == "training_10":
             return 150
         else:
-            raise ValueError(f"Unknown model directory: {name}")
+            print(f"WARNING: Unknown model directory: {name}")
+            return 1000
 
     @staticmethod
     def plot_width_by_npoints(model_dirs: list[Path], raw_observed_data: Tensor, n_posterior_samples: int = 1000):
@@ -68,7 +69,7 @@ class Improvements:
         n_points_list = []
         avg_widths = []
         for model_dir in model_dirs:
-            model: Model = Backup.load_model_basic(directory=model_dir)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir)
             n_points = Improvements._get_number_of_points(model_dir.name)
             observed_data = model.normalizer.normalize_data(raw_observed_data)
             with torch.no_grad():
@@ -109,7 +110,7 @@ class Improvements:
         fig, ax = plt.subplots(figsize=(7, 4))
         for model_dir in model_dirs:
             avg_widths = []
-            model: Model = Backup.load_model_basic(directory=model_dir)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir)
             n_points = Improvements._get_number_of_points(model_dir.name)
             observed_data = model.normalizer.normalize_data(raw_observed_data)[:,:n_points]
             na = np.linspace(130, n_points, 8, dtype=int)
@@ -154,7 +155,7 @@ class Improvements:
         n_points_list = []
         avg_widths = []
         for model_dir in model_dirs:
-            model: Model = Backup.load_model_basic(directory=model_dir)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir)
             n_points = Improvements._get_number_of_points(model_dir.name)
             observed_data = model.normalizer.normalize_data(raw_observed_data)
             with torch.no_grad():
@@ -180,7 +181,7 @@ class Improvements:
         # --- Plot ---
         fig, ax = plt.subplots(figsize=(7, 4))
         ax.plot(inv_N,sigma2,marker="o",linestyle="",label=r"Measured $\sigma^2$",)
-        ax.plot(inv_N_fit,sigma2_fit,linestyle="--",color="black",label=rf"Fit: $\sigma^2 = {a:.3e}/N + {b:.3e}$",)
+        ax.plot(inv_N_fit,sigma2_fit,linestyle="--",color="black",label=rf"Fit: $\sigma^2 = ({a:.3e})/N + ({b:.3e})$",)
         ax.set_xlabel(r"$1 / n_{\mathrm{points}}$", fontsize=AXIS_FONTSIZE)
         ax.set_ylabel(r"$(\mathrm{Average\ posterior\ width})^2$", fontsize=AXIS_FONTSIZE - 4)
         ax.tick_params(labelsize=TICK_FONTSIZE)
