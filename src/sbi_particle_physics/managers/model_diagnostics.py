@@ -302,7 +302,7 @@ class ModelDiagnostics:
         Plot many 1D posteriors in a grid to verify the accuracy of the predictions
         """
         n_plots = n_cols * n_rows
-        n_points = 1000
+        n_points = model.n_points
         n_samples = 1000
 
         fig, axes = plt.subplots(

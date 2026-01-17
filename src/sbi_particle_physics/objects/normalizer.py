@@ -13,27 +13,27 @@ class Normalizer:
     to encode the periodicity (phi near -pi should be similar to phi near pi)
     """
 
-    def __init__(self, data_mean : Tensor, data_std : Tensor):
+    def __init__(self, device : torch.device, data_mean : Tensor, data_std : Tensor):
         #formated_data = Normalizer.format_phi(raw_data)
         #self.data_mean = formated_data.mean(dim=(0,1)) # shape (point_dim) (average along q^2, cos theta_d,...)
         #self.data_std = formated_data.std(dim=(0,1))
 
-        self.data_mean = data_mean
-        self.data_std = data_std
-        self.parameters_mean = None # I don't normalize parameters, but here for potential future use
-        self.parameters_std = None
- 
-    
+        self.device : torch.device = device
+        self.data_mean : Tensor = data_mean.to(device)
+        self.data_std : Tensor = data_std.to(device)
+        self.parameters_mean : Tensor = None # I don't normalize parameters, but here for potential future use
+        self.parameters_std : Tensor = None
+
     @staticmethod
     def calculate_stats(raw_data : Tensor) -> tuple[Tensor, Tensor]:
         formated_data = Normalizer._format_phi(raw_data)
         return formated_data.mean(dim=(0,1)), formated_data.std(dim=(0,1))
     
     @staticmethod
-    def create_normalizer(raw_data : Tensor) -> Self:
+    def create_normalizer(device : torch.device, raw_data : Tensor) -> Self:
         data_mean, data_std = Normalizer.calculate_stats(raw_data)
-        return Normalizer(data_mean, data_std)
-    
+        return Normalizer(device, data_mean, data_std)
+
     @staticmethod
     def _format_phi(raw_x : Tensor) -> Tensor:
         features = raw_x[..., 0:3]

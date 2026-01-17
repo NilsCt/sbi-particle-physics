@@ -3,10 +3,10 @@ import torch
 import numpy as np
 from sbi_particle_physics.objects.normalizer import Normalizer
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Model(device)
-n_samples = 5
+device = "cpu" # this small test works on cpu
 n_points = 5
+n_samples = 5
+model = Model(device, n_points)
 
 model.set_prior_basic([3], [5])
 model.set_simulator(stride=2, pre_N=2, preruns=2)

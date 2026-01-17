@@ -43,23 +43,7 @@ class Improvements:
     """
 
     @staticmethod
-    def _get_number_of_points(name : str):
-        if name == "training_6":
-            return 1000
-        elif name == "training_7":
-            return 750
-        elif name == "training_8":
-            return 500
-        elif name == "training_9":
-            return 250
-        elif name == "training_10":
-            return 150
-        else:
-            print(f"WARNING: Unknown model directory: {name}")
-            return 1000
-
-    @staticmethod
-    def plot_width_by_npoints(model_dirs: list[Path], raw_observed_data: Tensor, n_posterior_samples: int = 1000):
+    def plot_width_by_npoints(model_dirs: list[Path], device: torch.device, raw_observed_data: Tensor, n_posterior_samples: int = 1000):
         """
         Plots a graph of the average width of the posteriors as a function of the number 
         of points in each samples given to the neural network during trainig.
@@ -69,8 +53,8 @@ class Improvements:
         n_points_list = []
         avg_widths = []
         for model_dir in model_dirs:
-            model: Model = Backup.load_model_for_inference_basic(directory=model_dir)
-            n_points = Improvements._get_number_of_points(model_dir.name)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            n_points = model.n_points
             observed_data = model.normalizer.normalize_data(raw_observed_data)
             with torch.no_grad():
                 posterior_samples = model.draw_parameters_from_predicted_posterior(observed_data[:,:n_points], n_parameters=n_posterior_samples)
@@ -99,7 +83,7 @@ class Improvements:
         plt.show()
 
     @staticmethod
-    def plot_width_by_npoints_pro(model_dirs: list[Path], raw_observed_data : Tensor, n_posterior_samples: int = 1000):
+    def plot_width_by_npoints_pro(model_dirs: list[Path], device: torch.device, raw_observed_data : Tensor, n_posterior_samples: int = 1000):
         """
         Plots a graph of the following:
         For each neural network (that can be trained with different n_points per sample)
@@ -110,13 +94,13 @@ class Improvements:
         fig, ax = plt.subplots(figsize=(7, 4))
         for model_dir in model_dirs:
             avg_widths = []
-            model: Model = Backup.load_model_for_inference_basic(directory=model_dir)
-            n_points = Improvements._get_number_of_points(model_dir.name)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            n_points = model.n_points
             observed_data = model.normalizer.normalize_data(raw_observed_data)[:,:n_points]
             na = np.linspace(130, n_points, 8, dtype=int)
             for n in na:
                 with torch.no_grad():
-                    x_padded = torch.full(observed_data.shape, float('nan'))
+                    x_padded = torch.full(observed_data.shape, float('nan'), device=model.device)
                     x_padded[:,:n] = observed_data[:,:n]
                     posterior_samples = model.draw_parameters_from_predicted_posterior(x_padded, n_parameters=n_posterior_samples)
                 avg_width = Predictions.average_uncertainty(posterior_samples)
@@ -140,7 +124,7 @@ class Improvements:
 
 
     @staticmethod
-    def plot_width_by_npoints_quantify(model_dirs: list[Path], raw_observed_data: Tensor, n_posterior_samples: int = 1000):
+    def plot_width_by_npoints_quantify(model_dirs: list[Path], device: torch.device, raw_observed_data: Tensor, n_posterior_samples: int = 1000):
         """
         Quantifies whether the posterior uncertainties are statistically limited
         by fitting the relation: sigma^2(N) = a / N + b
@@ -155,8 +139,8 @@ class Improvements:
         n_points_list = []
         avg_widths = []
         for model_dir in model_dirs:
-            model: Model = Backup.load_model_for_inference_basic(directory=model_dir)
-            n_points = Improvements._get_number_of_points(model_dir.name)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            n_points = model.n_points
             observed_data = model.normalizer.normalize_data(raw_observed_data)
             with torch.no_grad():
                 posterior_samples = model.draw_parameters_from_predicted_posterior(observed_data[:, :n_points],n_parameters=n_posterior_samples,)

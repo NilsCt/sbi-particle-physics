@@ -18,8 +18,8 @@ parser.add_argument("pre_N", type=int) # 1000
 parser.add_argument("preruns", type=int) # 10
 args = parser.parse_args()
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Model(device)
+device = "cpu" # eos is not compatible with torch + cuda
+model = Model(device, n_points=args.n_points)
 prior_low_raw, prior_high_raw = model.to_tensor([args.prior_low]), model.to_tensor([args.prior_high])
 model.set_prior(prior_low_raw, prior_high_raw)
 model.set_simulator(stride=args.stride, pre_N=args.pre_N, preruns=args.preruns)

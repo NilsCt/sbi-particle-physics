@@ -16,7 +16,7 @@ class Simulator:
     """
 
 
-    def __init__(self, device, rng : RandomState, stride : int, pre_N : int, preruns : int):
+    def __init__(self, device : torch.device, rng : RandomState, stride : int, pre_N : int, preruns : int):
         self.device = device
         self.stride : int = stride
         self.pre_N : int = pre_N

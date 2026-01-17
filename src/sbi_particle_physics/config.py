@@ -14,7 +14,7 @@ MODELS_DIR = PROJECT_ROOT / "models"
 DATA_DIRECTORY_PATTERN = "data_{id}" # important to keep "_" but the name before can be changed
 DATA_FILE_PATTERN = "data_{index}.pt"
 MODEL_DIRECTORY_PATTERN = "model_{id}"
-MODEL_FILE_PATTERN = "epoch_{epoch}.pkl"
+MODEL_FILE_PATTERN = "epoch_{epoch}.pt"
 
 # Data / Parameters    
 DATA_LABELS = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]

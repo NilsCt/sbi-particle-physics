@@ -28,7 +28,7 @@ class Model:
     And to train the neural network with it using train()
     """
 
-    def __init__(self, device, seed : int = None):
+    def __init__(self, device, n_points : int, seed : int = None):
         self.device = device
         self.seed = np.random.randint(0, 10000) if seed is None else seed
         self.rng : RandomState = np.random.mtrand.RandomState(self.seed)
@@ -41,7 +41,7 @@ class Model:
         self.validation_loss : list[float] = []
         self.epoch : int = 0
         self.data_files_paths : list[Path] = [] # list and not set to keep order (deterministic loading if needed)
-        self.max_n_points : int | None = None
+        self.n_points : int = n_points
 
         self.trial_num_layers : int = None
         self.trial_num_hiddens : int = None
@@ -72,10 +72,10 @@ class Model:
         self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns)
 
     def set_normalizer(self, data_mean : Tensor, data_std : Tensor):
-        self.normalizer = Normalizer(data_mean, data_std)
+        self.normalizer = Normalizer(self.device, data_mean, data_std)
 
     def set_normalizer_with_data(self, raw_data : Tensor):
-        self.normalizer = Normalizer.create_normalizer(raw_data)
+        self.normalizer = Normalizer.create_normalizer(self.device, raw_data)
 
     def build(self, trial_num_layers : int, trial_num_hiddens : int, trial_embedding_dim : int, 
               aggregated_num_layers : int, aggregated_num_hiddens : int, aggregated_output_dim : int,
@@ -169,7 +169,7 @@ class Model:
 
     def train(self, stop_after_epochs : int, max_num_epochs : int, resume_training : bool = False):  
         before = len(self.validation_loss) # todo mettre self.epoch ?
-        self.neural_network.train(stop_after_epochs=stop_after_epochs, max_num_epochs=max_num_epochs, resume_training=resume_training)
+        self.neural_network.train(stop_after_epochs=stop_after_epochs, max_num_epochs=max_num_epochs, resume_training=resume_training, dataloader_kwargs={"num_workers": 0}) # dataloader_kwargs pour éviter de la duplication de mémoire
         self.epoch = self.neural_network.epoch
         new = self.epoch - before
         self.training_loss.extend(self.neural_network.summary["training_loss"][-new:])
@@ -201,3 +201,39 @@ class Model:
         observed_data, true_parameters = self.simulate_data(n_samples=n_true, n_points=n_points)
         sampled_parameters = self.draw_parameters_from_predicted_posterior(observed_samples=observed_data, n_parameters=n_sampled_parameters)
         return true_parameters.squeeze(0), observed_data.squeeze(0), sampled_parameters.squeeze(0)
+
+
+    def change_device(self, device : torch.device | str):
+        device = torch.device(device)
+        if self.device == device: return
+        self.device = device
+
+        if self.prior is not None:
+            self.prior.low = self.prior.low.to(device)
+            self.prior.high = self.prior.high.to(device)
+            self.prior.device = device
+
+        if self.normalizer is not None:
+            self.normalizer.device = device
+            self.normalizer.data_mean = self.normalizer.data_mean.to(device)
+            self.normalizer.data_std = self.normalizer.data_std.to(device)
+            if self.normalizer.parameters_mean is not None:
+                self.normalizer.parameters_mean = self.normalizer.parameters_mean.to(device)
+            if self.normalizer.parameters_std is not None:
+                self.normalizer.parameters_std = self.normalizer.parameters_std.to(device)
+
+        if self.simulator is not None:
+            self.simulator.device = device
+
+        if self.neural_network is not None:
+            self.neural_network.device = device
+            if hasattr(self.neural_network, '_neural_net') and self.neural_network._neural_net is not None:
+                self.neural_network._neural_net.to(device)
+            if hasattr(self.neural_network, 'optimizer') and self.neural_network.optimizer is not None:
+                for state in self.neural_network.optimizer.state.values():
+                    for k, v in state.items():
+                        if isinstance(v, torch.Tensor):
+                            state[k] = v.to(device)
+
+        if self.posterior is not None:
+            self.posterior.to(device)

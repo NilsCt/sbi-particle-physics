@@ -61,20 +61,20 @@ class Backup:
     
     
     @staticmethod
-    def load_one_file(file : Path):
-        checkpoint = torch.load(file, weights_only=False)
+    def load_one_file(file : Path, device : torch.device) -> tuple[Tensor, Tensor, dict]:
+        checkpoint = torch.load(file, weights_only=False, map_location=device)
         file_raw_data = checkpoint['raw_data']
         file_raw_parameters = checkpoint['raw_parameters']
         metadata = checkpoint['metadata']
         return file_raw_data, file_raw_parameters, metadata
 
     @staticmethod
-    def load_data(files : list[Path]):
+    def load_data(files : list[Path], device : torch.device) -> tuple[Tensor, Tensor, dict]:
         all_raw_data = []
         all_raw_parameters = []
         metadata = None
         for file in tqdm(files, desc="Loading files", leave=False):
-            file_raw_data, file_raw_parameters, file_metadata = Backup.load_one_file(file)
+            file_raw_data, file_raw_parameters, file_metadata = Backup.load_one_file(file, device)
             if metadata is None: metadata = file_metadata # we keep the metadata of the first file
             all_raw_data.append(file_raw_data)
             all_raw_parameters.append(file_raw_parameters)
@@ -87,14 +87,14 @@ class Backup:
     
     
     @staticmethod
-    def calculate_stats(files : list[Path], batchsize : int) -> tuple[float, float]:
+    def calculate_stats(files : list[Path], batchsize : int, device : torch.device) -> tuple[float, float]:
         mean = 0
         std = 1
         cursor = 0
         while cursor < len(files):
             selected_files = files[cursor: cursor+batchsize]
             cursor += batchsize
-            raw_data, _, _ = Backup.load_data(selected_files)
+            raw_data, _, _ = Backup.load_data(selected_files, device)
             data_mean, data_std = Normalizer.calculate_stats(raw_data)
             mean += data_mean * len(selected_files)
             std += data_std * len(selected_files)
@@ -105,7 +105,7 @@ class Backup:
         cursor = 0
         while cursor < len(files):
             f = files[cursor: cursor+batchsize]
-            raw_data, raw_parameters, met = Backup.load_data(f)
+            raw_data, raw_parameters, met = Backup.load_data(f, model.device)
             if max_points is not None:
                 raw_data = raw_data[:,:max_points]
                 raw_parameters = raw_parameters[:,:max_points]
@@ -115,7 +115,7 @@ class Backup:
             model.append_data(data, parameters, f)
 
     @staticmethod
-    def load_data_and_build_model(directory : Path, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None, max_points : int = None) -> tuple[Model, int]:
+    def load_data_and_build_model(directory : Path, device : torch.device, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None, max_points : int = None) -> Model:
         # warning: here batchsize corresponds to the number of data files used at a time, not of samples
         # one file contains around 500 samples
         files = Backup.detect_files(directory) 
@@ -123,10 +123,10 @@ class Backup:
         if len(files) == 0: raise BaseException("No files found") 
        
         print(f"{len(files)} files")
-        mean, std = Backup.calculate_stats(files, batchsize)
-        _, _, metadata = Backup.load_one_file(files[0])
-        device = torch.device(metadata['device'])
-        model = Model(device, seed)
+        mean, std = Backup.calculate_stats(files, batchsize=batchsize, device=device)
+        data0, _, metadata = Backup.load_one_file(files[0], device)
+        n_points = data0.shape[1]
+        model = Model(device, n_points, seed)
 
         prior_low_raw = model.to_tensor(metadata['prior_low_raw'])
         prior_high_raw = model.to_tensor(metadata['prior_high_raw'])
@@ -140,30 +140,30 @@ class Backup:
 
     @staticmethod
     def save_model(model : Model, file : Path):
-        # neural_network._theta_roundwise = []
-        #neural_network._x_roundwise = []
-        #neural_network._prior_masks = []
-        #neural_network._proposal_roundwise = []
+        posterior_cpu = model.posterior
+        if posterior_cpu is not None:
+            posterior_cpu.to("cpu") # avec sbi ca modifie l'objet en place (comme moi)
         save_dict = {
             'device': model.device, # utils
+            'n_points': model.n_points,
             'seed': model.seed,
 
             'prior_type' : model.prior_type, # prior
-            'prior_low': model.prior.low.cpu().numpy(),
-            'prior_high': model.prior.high.cpu().numpy(),
+            'prior_low': model.prior.low.cpu(),
+            'prior_high': model.prior.high.cpu(),
 
             'stride': model.simulator.stride, # simulator
             'pre_N': model.simulator.pre_N,
             'preruns': model.simulator.preruns,
 
-            'data_mean': model.normalizer.data_mean.cpu().numpy(), # normalizer
-            'data_std': model.normalizer.data_std.cpu().numpy(),
+            'data_mean': model.normalizer.data_mean.cpu(), # normalizer
+            'data_std': model.normalizer.data_std.cpu(),
             'parameters_mean': model.normalizer.parameters_mean,
             'parameters_std': model.normalizer.parameters_std,
 
             'training_loss': model.training_loss, # training
             'validation_loss': model.validation_loss,
-            'epoch': model.neural_network.epoch,
+            'epoch': model.epoch,
 
             'trial_num_layers': model.trial_num_layers, # architecture
             'trial_num_hiddens': model.trial_num_hiddens,
@@ -178,50 +178,43 @@ class Backup:
             'model_type': model.model_type, # for now constant information
             'z_score_x': model.z_score_x,
 
-            'posterior' : model.posterior, # sbi object for inference
+            'posterior' : posterior_cpu, # sbi object for inference
 
             'sbi_version' : sbi.__version__, # versions
             'torch_version' : torch.__version__,
 
-            'weights': model.neural_network._neural_net.state_dict(), # weights
+            'neural_net_state_dict': model.neural_network._neural_net.state_dict(), # weights
 
             'optimizer_state_dict': model.neural_network.optimizer.state_dict(), # optimizer
             # si version finale, il est plus courant de ne pas stocke l'optimizer (qui prend autant de place que le réseau)
             # qui n'est plus utilisé et qui peut poser des problèmes lors du loading
 
-            'data_files_paths': [str(x) for x in model.data_files_paths], # data
-            'max_n_points': model.max_n_points
+            'data_files_paths': [str(x) for x in model.data_files_paths] # data
         }
-        path = Path(file)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as f:
-            pickle.dump(save_dict, f)
+        file.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(save_dict, file)
         print(f"Model saved to {file}")
 
     @staticmethod
-    def _load_util(file : Path) -> tuple[Model, dict]:
+    def _load_util(file : Path, device : torch.device) -> tuple[Model, dict]:
         # its better to not pickle compex objects such as class, but instead their variables
-        with file.open("rb") as f:
-            save_dict = pickle.load(f)
-        device = torch.device(save_dict['device'])
-        seed = save_dict['seed']
-        model = Model(device, seed)
-        model.max_n_points = save_dict.get('max_n_points', None)
+        save_dict = torch.load(file, map_location=device) # move every tensor in the dict to the specified device
+
+        # old_device = torch.device(save_dict['device'])
+        model = Model(device, save_dict['n_points'], save_dict['seed'])
 
         model.prior_type = save_dict['prior_type']
-        model.set_prior_basic(save_dict['prior_low'], save_dict['prior_high'])
+        model.set_prior(save_dict['prior_low'], save_dict['prior_high'])
 
-        stride, pre_N, preruns = save_dict['stride'], save_dict['pre_N'], save_dict['preruns']
-        model.set_simulator(stride, pre_N, preruns)
+        model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'])
 
-        data_mean = model.to_tensor(save_dict['data_mean'])
-        data_std = model.to_tensor(save_dict['data_std'])
-        model.set_normalizer(data_mean, data_std)
+        model.set_normalizer(save_dict['data_mean'], save_dict['data_std'])
 
         model.data_files_paths = [Path(x) for x in save_dict['data_files_paths']]
 
         model.training_loss = save_dict['training_loss']
         model.validation_loss = save_dict['validation_loss']
+        model.epoch = save_dict['epoch']
 
         model.posterior = save_dict['posterior']
 
@@ -229,16 +222,16 @@ class Backup:
         return model, save_dict
 
     @staticmethod
-    def load_model_for_inference(file : Path) -> Model:
+    def load_model_for_inference(file : Path, device : torch.device) -> Model:
         # when loaded for inference, neural_nework can't be used, can't be trained, new posteriors can't be created
         # only other variables and model.posterior are loaded
-        model, _ = Backup._load_util(file)
+        model, _ = Backup._load_util(file, device)
         return model
 
     @staticmethod
-    def load_model_for_training(file : Path, load_back_data : bool = True, batchsize : int = 1, first_file : Path = None) -> Model:
+    def load_model_for_training(file : Path, device : torch.device, load_back_data : bool = True, batchsize : int = 1, first_file : Path = None) -> Model:
         # if load_back_data is False, first_file must be specified (to load data from and do a dummy epoch to initialize the nn)
-        model, save_dict = Backup._load_util(file)
+        model, save_dict = Backup._load_util(file, device)
 
         model.build(
             trial_num_layers=save_dict['trial_num_layers'],
@@ -253,13 +246,13 @@ class Backup:
         )
 
         if load_back_data:
-            Backup.load_and_append_data(model, model.data_files_paths, batchsize=batchsize, max_points=model.max_n_points)
+            Backup.load_and_append_data(model, model.data_files_paths, batchsize=batchsize, max_points=model.n_points)
         elif first_file is not None:
-            Backup.load_and_append_data(model, [first_file], batchsize=batchsize, max_points=model.max_n_points)
+            Backup.load_and_append_data(model, [first_file], batchsize=batchsize, max_points=model.n_points)
         model.neural_network.train(max_num_epochs=1) # otherwise _neural_net is not initialized and the weights can't be loaded
 
         model.neural_network.epoch = save_dict['epoch']
-        model.neural_network._neural_net.load_state_dict(save_dict['weights'])
+        model.neural_network._neural_net.load_state_dict(save_dict['neural_net_state_dict'])
 
         model.neural_network.optimizer.load_state_dict(save_dict['optimizer_state_dict'])
 
@@ -283,14 +276,14 @@ class Backup:
         raise FileNotFoundError(f"No file corresponding to epoch {epoch} in directory {directory}")
         
     @staticmethod
-    def load_model_for_inference_basic(directory : Path, epoch : int | None = None) -> Model: # useful method to load more easily a model
+    def load_model_for_inference_basic(directory : Path, device : torch.device, epoch : int | None = None) -> Model: # useful method to load more easily a model
         file  = Backup._get_corresponding_file(directory, epoch)
-        return Backup.load_model_for_inference(file)
+        return Backup.load_model_for_inference(file, device)
 
     @staticmethod
-    def load_model_for_training_basic(directory : Path, epoch : int | None = None, load_back_data : bool = True, batchsize : int = 1) -> Model: # useful method to load more easily a model
+    def load_model_for_training_basic(directory : Path, device : torch.device, epoch : int | None = None, load_back_data : bool = True, batchsize : int = 1) -> Model: # useful method to load more easily a model
         file  = Backup._get_corresponding_file(directory, epoch)
-        return Backup.load_model_for_training(file, load_back_data=load_back_data, batchsize=batchsize)
+        return Backup.load_model_for_training(file, device, load_back_data=load_back_data, batchsize=batchsize)
 
 
     @staticmethod

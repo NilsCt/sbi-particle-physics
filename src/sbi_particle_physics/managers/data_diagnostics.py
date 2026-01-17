@@ -29,7 +29,7 @@ class DataDiagnostics:
         data_unis = []
         for i in range(data.shape[0]):
             data_unis.append(DataDiagnostics._unicity(data[i]))
-        data_unis = torch.as_tensor(data_unis)
+        data_unis = torch.as_tensor(data_unis, device=data.device)
         print(f"Parameters unicity rate {parameters_uni} (normal to be low if many parameters)")
         print(f"Data average unicity rate {data_unis.mean()} (>0.95 needed), data min unicity rate {data_unis.min()}")
 
@@ -38,7 +38,7 @@ class DataDiagnostics:
     def _autocorr_1d(x: Tensor, max_lag: int = 100) -> Tensor:
         x = x - x.mean()
         var = x.var(unbiased=False)
-        if var == 0: return torch.zeros(max_lag)
+        if var == 0: return torch.zeros(max_lag, device=x.device)
         ac = [torch.tensor(1.0, device=x.device)]
         for k in range(1, max_lag):
             ac_k = (x[:-k] * x[k:]).mean() / var
