@@ -1,5 +1,6 @@
 models/
 data/
+plots/
 sbi-logs/
 __pycache__/
 nohup.out

@@ -5,8 +5,8 @@ from sbi_particle_physics.config import DATA_DIR, DEFAULT_POINTS_PER_SAMPLE, DEF
 
 directory = DATA_DIR / "data_3"
 start_index = 2500
-amount_per_worker = 2
-amount_of_workers = 60 # NE PAS DÉPASSER 75
+amount_per_worker = 1
+amount_of_workers = 1 # NE PAS DÉPASSER 75
 
 n_samples = 50 # per file
 n_points = 10000

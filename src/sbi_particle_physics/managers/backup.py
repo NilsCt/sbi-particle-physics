@@ -7,7 +7,7 @@ from sbi_particle_physics.objects.normalizer import Normalizer
 from tqdm.notebook import tqdm
 from pathlib import Path
 from sbi_particle_physics.managers.plotter import Plotter
-from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN, KEEP_LAST_N_BACKUPS
+from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN, KEEP_LAST_N_BACKUPS, DEFAULT_ENCODER_ACTIVATION_FUNCTION, DEFAULT_NSF_ACTIVATION_FUNCTION, DEFAULT_WEIGHT_DECAY
 import sbi
 
 
@@ -175,6 +175,9 @@ class Backup:
             'nsf_hidden_features': model.nsf_hidden_features,
             'nsf_num_transforms': model.nsf_num_transforms,
             'nsf_num_bins': model.nsf_num_bins,
+            'encoder_activation_function': model.encoder_activation_function,
+            'nsf_activation_function': model.nsf_activation_function,
+            'weight_decay': model.weight_decay,
 
             'model_type': model.model_type, # for now constant information
             'z_score_x': model.z_score_x,
@@ -243,7 +246,10 @@ class Backup:
             aggregated_output_dim=save_dict['aggregated_output_dim'],
             nsf_hidden_features=save_dict['nsf_hidden_features'],
             nsf_num_transforms=save_dict['nsf_num_transforms'],
-            nsf_num_bins=save_dict['nsf_num_bins']
+            nsf_num_bins=save_dict['nsf_num_bins'],
+            encoder_activation_function=save_dict.get('encoder_activation_function', DEFAULT_ENCODER_ACTIVATION_FUNCTION),
+            nsf_activation_function=save_dict.get('nsf_activation_function', DEFAULT_NSF_ACTIVATION_FUNCTION),
+            weight_decay=save_dict.get('weight_decay', DEFAULT_WEIGHT_DECAY)
         )
 
         if load_back_data:

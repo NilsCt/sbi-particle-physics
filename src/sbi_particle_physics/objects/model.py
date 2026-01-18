@@ -8,7 +8,7 @@ from sbi.neural_nets import posterior_nn
 from sbi.neural_nets.embedding_nets import FCEmbedding, PermutationInvariantEmbedding
 from sbi.utils import BoxUniform
 from matplotlib.pylab import RandomState
-from sbi_particle_physics.config import ENCODED_POINT_DIM, DEFAULT_TRIAL_EMBEDDING_DIM, DEFAULT_TRIAL_NUM_LAYERS, DEFAULT_AGGREGATED_NUM_HIDDENS, DEFAULT_AGGREGATED_NUM_LAYERS, DEFAULT_AGGREGATED_OUTPUT_DIM, DEFAULT_NSF_HIDDEN_FEATURES, DEFAULT_NSF_NUM_BINS, DEFAULT_NSF_NUM_TRANSFORMS, DEFAULT_TRIAL_NUM_HIDDENS, DEFAULT_SAMPLE_WITH
+from sbi_particle_physics.config import ENCODED_POINT_DIM, DEFAULT_TRIAL_EMBEDDING_DIM, DEFAULT_TRIAL_NUM_LAYERS, DEFAULT_AGGREGATED_NUM_HIDDENS, DEFAULT_AGGREGATED_NUM_LAYERS, DEFAULT_AGGREGATED_OUTPUT_DIM, DEFAULT_NSF_HIDDEN_FEATURES, DEFAULT_NSF_NUM_BINS, DEFAULT_NSF_NUM_TRANSFORMS, DEFAULT_TRIAL_NUM_HIDDENS, DEFAULT_SAMPLE_WITH, DEFAULT_ENCODER_ACTIVATION_FUNCTION, DEFAULT_NSF_ACTIVATION_FUNCTION, DEFAULT_WEIGHT_DECAY
 from pathlib import Path
 
 # conda activate mlhep
@@ -52,9 +52,12 @@ class Model:
         self.aggregated_num_layers : int = None
         self.aggregated_num_hiddens : int = None
         self.aggregated_output_dim : int = None
+        self.encoder_activation_function : str = None
         self.nsf_hidden_features : int = None
         self.nsf_num_transforms : int = None
         self.nsf_num_bins : int = None
+        self.nsf_activation_function : str = None
+        self.weight_decay : int = None
         self.model_type = "nsf" # I only implement that for now
         self.z_score_x = "none"
         self.prior_type = "uniform"
@@ -80,9 +83,23 @@ class Model:
     def set_normalizer_with_data(self, raw_data : Tensor):
         self.normalizer = Normalizer.create_normalizer(self.device, raw_data)
 
+    @staticmethod
+    def _get_activation_function(name : str) -> torch.nn.Module:
+        name = name.lower()
+        if name == "relu":
+            return torch.nn.ReLU()
+        elif name == "elu":
+            return torch.nn.ELU()
+        elif name == "gelu":
+            return torch.nn.GELU()
+        elif name == "silu":
+            return torch.nn.SiLU()
+        else:
+            raise ValueError(f"Unknown activation function name: {name}")
+
     def build(self, trial_num_layers : int, trial_num_hiddens : int, trial_embedding_dim : int, 
               aggregated_num_layers : int, aggregated_num_hiddens : int, aggregated_output_dim : int,
-              nsf_hidden_features : int, nsf_num_transforms : int, nsf_num_bins : int): 
+              nsf_hidden_features : int, nsf_num_transforms : int, nsf_num_bins : int, encoder_activation_function : str, nsf_activation_function : str, weight_decay : int): 
         
         self.trial_num_layers = trial_num_layers
         self.trial_num_hiddens = trial_num_hiddens
@@ -93,6 +110,9 @@ class Model:
         self.nsf_hidden_features = nsf_hidden_features
         self.nsf_num_transforms = nsf_num_transforms
         self.nsf_num_bins = nsf_num_bins
+        self.encoder_activation_function = encoder_activation_function
+        self.nsf_activation_function = nsf_activation_function
+        self.weight_decay = weight_decay
 
         single_trial_net = FCEmbedding(
             input_dim=ENCODED_POINT_DIM,
@@ -115,7 +135,8 @@ class Model:
             num_transforms=nsf_num_transforms,
             num_bins=nsf_num_bins,
             embedding_net=embedding_net,
-            z_score_x=self.z_score_x  #  no normalization since I already do that
+            z_score_x=self.z_score_x,  #  no normalization since I already do that
+            activation=Model._get_activation_function(nsf_activation_function)
         )
 
         self.neural_network = NPE(
@@ -123,6 +144,8 @@ class Model:
             device=self.device,
             density_estimator=density_estimator
         )
+        # I can't change the encoder activation function if I use the sbi built-in classes, so I just store it for reference
+        # I will need to implement a custom embedding net later if I want to improve the encoder and change its activation function
 
     def build_default(self):
         self.build(
@@ -134,7 +157,10 @@ class Model:
             aggregated_output_dim=DEFAULT_AGGREGATED_OUTPUT_DIM,
             nsf_hidden_features=DEFAULT_NSF_HIDDEN_FEATURES, 
             nsf_num_transforms=DEFAULT_NSF_NUM_TRANSFORMS,
-            nsf_num_bins=DEFAULT_NSF_NUM_BINS
+            nsf_num_bins=DEFAULT_NSF_NUM_BINS,
+            encoder_activation_function=DEFAULT_ENCODER_ACTIVATION_FUNCTION,
+            nsf_activation_function=DEFAULT_NSF_ACTIVATION_FUNCTION,
+            weight_decay=DEFAULT_WEIGHT_DECAY
         )
 
     def draw_raw_parameters_from_prior(self, n_parameters : int) -> Tensor:

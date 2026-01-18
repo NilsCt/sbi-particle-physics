@@ -16,6 +16,7 @@ from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
 from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE
 from sbi_particle_physics.managers.predictions import Predictions
+from pathlib import Path
 
 class ModelDiagnostics:
     """
@@ -24,7 +25,7 @@ class ModelDiagnostics:
     """
 
     @staticmethod
-    def simulation_based_calibration(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
+    def simulation_based_calibration(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int, path : Path = None):
         """
         Simulation-Based Calibration (SBC)
         Generates parameters θ_i from the prior, simulates data x_i ~ p(x | θ_i),
@@ -49,7 +50,10 @@ class ModelDiagnostics:
             num_bins=20,
             figsize=(5, 3),
         )
-        plt.show()
+        if path is None:
+            fig.show()
+        else:
+            fig.savefig(path)
 
     @staticmethod
     def _summary_stats(x):
@@ -60,7 +64,7 @@ class ModelDiagnostics:
         ], dim=0)  # shape (2, D)
 
     @staticmethod
-    def posterior_predictive_checks(model : Model, x_o : Tensor, n_samples : int, n_points : int):
+    def posterior_predictive_checks(model : Model, x_o : Tensor, n_samples : int, n_points : int, path : Path = None):
         """
         Posterior Predictive Checks (PPC)
         Generates a parameter θ, simulates data x_i ~ p(x | θ),
@@ -138,12 +142,15 @@ class ModelDiagnostics:
                 ax.set_xticks([])
                 ax.set_title(rf"$s_{s}(x_{d})$")
 
-        plt.tight_layout()
-        plt.show()
+        fig.tight_layout()
+        if path is None:
+            fig.show()
+        else:
+            fig.savefig(path)
 
 
     @staticmethod
-    def expected_coverage_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
+    def expected_coverage_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int, path : Path = None):
         """
         Expected Coverage Test (ECT)
         Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
@@ -170,10 +177,13 @@ class ModelDiagnostics:
             num_bins=20,
             figsize=(5, 3),
         )
-        plt.show()
+        if path is None:
+            fig.show()
+        else:
+            fig.savefig(path)
 
     @staticmethod
-    def tarp_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int):
+    def tarp_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int, path : Path = None):
         """
         TARP Test
         Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
@@ -198,7 +208,11 @@ class ModelDiagnostics:
         atc, ks_pval = check_tarp(ecp, alpha)
         print(atc, "Should be close to 0")
         print(ks_pval, "Should be larger than 0.05")
-        plot_tarp(ecp, alpha)
+        fig, ax = plot_tarp(ecp, alpha)
+        if path is None:
+            fig.show()
+        else:
+            fig.savefig(path)
 
 
     @staticmethod
@@ -207,7 +221,7 @@ class ModelDiagnostics:
         return stats_2d.reshape(-1)
 
     @staticmethod
-    def misspecification_test(model: Model, x_train: Tensor, x_o: Tensor):
+    def misspecification_test(model: Model, x_train: Tensor, x_o: Tensor, path : Path = None):
         """
         Misspecification Test
         Model misspecification occurs when the true data-generating process
@@ -249,11 +263,14 @@ class ModelDiagnostics:
         plt.ylabel("Count")
         plt.legend()
         plt.tight_layout()
-        plt.show()
+        if path is None:
+            plt.show()
+        else:
+            plt.savefig(path)
 
 
     @staticmethod
-    def misspecification_test_mmd(model : Model, x_train : Tensor, x_o : Tensor):
+    def misspecification_test_mmd(model : Model, x_train : Tensor, x_o : Tensor, path : Path = None):
         """
         Misspecification Test using MMD
         Uses Maximum Mean Discrepancy (MMD) to measure the distance
@@ -286,7 +303,10 @@ class ModelDiagnostics:
         plt.ylabel("Count")
         plt.xlabel("MMD")
         plt.legend()
-        plt.show()
+        if path is None:
+            plt.show()
+        else:
+            plt.savefig(path)
 
     @staticmethod
     def many_posteriors(
@@ -297,7 +317,7 @@ class ModelDiagnostics:
         n_rows: int = 5,
         bins: int = 40,
         figsize_per_plot=(3.0, 2.4),
-        savepath: str | None = None,
+        path : Path = None
     ):
         """
         Plot many 1D posteriors in a grid to verify the accuracy of the predictions
@@ -356,14 +376,11 @@ class ModelDiagnostics:
             fontsize=LEGEND_FONTSIZE,
             frameon=False,
         )
-
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
-
-        if savepath is None:
-            plt.show()
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        if path is None:
+            fig.show()
         else:
-            fig.savefig(savepath, dpi=150)
-            plt.close(fig)
+            fig.savefig(path)
 
 
 # todo diagnostics de robustesse:
@@ -371,7 +388,7 @@ class ModelDiagnostics:
 # que se passe il avec plus de bruits ?
 
     @staticmethod
-    def robustness_to_noise(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, deltas: list[float] | None = None):
+    def robustness_to_noise(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, deltas: list[float] | None = None, path : Path = None):
         """
         Diagnose robustness to small perturbations of the observed data.
 
@@ -410,19 +427,23 @@ class ModelDiagnostics:
             drift = torch.norm(mean_delta - mean_ref).item()
             estimator_drifts.append(drift)
 
-        def _plot(y, ylabel):
+        def _plot(y, ylabel, path : Path | None):
             plt.figure(figsize=(5, 3))
             plt.plot(deltas, y, marker="o")
             plt.xlabel(r"Noise amplitude $\delta$")
             plt.ylabel(ylabel)
             plt.grid(alpha=0.3)
             plt.tight_layout()
-            plt.show()
+            if path is None:
+                plt.show()
+            else:
+                plt.savefig(path)
 
-        _plot(avg_widths, r"$\langle \sigma \rangle$")
-        _plot(info_gains, r"Information gain")
-        _plot(log_contrs, r"Log contraction")
-        _plot(estimator_drifts, r"$\|\hat{\theta}(\delta)-\hat{\theta}(0)\|$")
+        path.mkdir(parents=True, exist_ok=True)
+        _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.png")
+        _plot(info_gains, r"Information gain", None if path is None else path / "info.png")
+        _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.png")
+        _plot(estimator_drifts, r"$\|\hat{\theta}(\delta)-\hat{\theta}(0)\|$", None if path is None else path / "drift.png")
 
         print("=== Robustness to noise summary ===")
         for i, d in enumerate(deltas):
@@ -436,7 +457,7 @@ class ModelDiagnostics:
 
 
     @staticmethod
-    def robustness_to_npoints(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, n_list: list[int] | None = None, use_random_subsample: bool = False, number_of_ns: int = 10):
+    def robustness_to_npoints(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, n_list: list[int] | None = None, use_random_subsample: bool = False, number_of_ns: int = 10, path : Path = None):
         """
         Diagnose robustness to fewer observed points by padding missing points with NaNs.
 
@@ -485,19 +506,23 @@ class ModelDiagnostics:
             drift = torch.norm(mean_n - mean_ref).item()
             estimator_drifts.append(drift)
 
-        def _plot(y, ylabel):
+        def _plot(y, ylabel, path : Path | None):
             plt.figure(figsize=(5, 3))
             plt.plot(n_list, y, marker="o")
             plt.xlabel(r"$n_\mathrm{points}$")
             plt.ylabel(ylabel)
             plt.grid(alpha=0.3)
             plt.tight_layout()
-            plt.show()
+            if path is None:
+                plt.show()
+            else:
+                plt.savefig(path)
 
-        _plot(avg_widths, r"$\langle \sigma \rangle$")
-        _plot(info_gains, r"Information gain")
-        _plot(log_contrs, r"Log contraction")
-        _plot(estimator_drifts, r"$\|\hat{\theta}(n)-\hat{\theta}(N)\|$")
+        path.mkdir(parents=True, exist_ok=True)
+        _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.png")
+        _plot(info_gains, r"Information gain", None if path is None else path / "info.png")
+        _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.png")
+        _plot(estimator_drifts, r"$\|\hat{\theta}(n)-\hat{\theta}(N)\|$", None if path is None else path / "drift.png")
 
         print("=== Robustness to n_points summary ===")
         for i, n in enumerate(n_list):

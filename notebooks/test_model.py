@@ -2,6 +2,9 @@ from sbi_particle_physics.objects.model import Model
 import torch
 import numpy as np
 from sbi_particle_physics.objects.normalizer import Normalizer
+import sbi
+
+print(sbi.__version__)
 
 device = "cpu" # this small test works on cpu
 n_points = 5
