@@ -219,8 +219,8 @@ class Model:
 
     # used to compare an observed sample with samples produced with parameters drawn from the posterior distribution predicted for the observed sample
     def simulate_data_from_predicted_posterior(self, observed_sample : Tensor, n_samples : int, n_points : int) -> tuple[Tensor, Tensor]:
-        parameters = self.draw_parameters_from_predicted_posterior(observed_sample, n_samples)
-        return self.simulate_data_with_parameters(parameters, n_points), parameters
+        parameters = self.draw_parameters_from_predicted_posterior(observed_sample, n_samples).squeeze(0)
+        return self.simulate_data_with_parameters(parameters, n_points).squeeze(0), parameters.squeeze(0)
     
     def get_random_true_parameter(self, n_points : int) -> tuple[Tensor, Tensor]:
         data, parameters = self.simulate_data(n_samples=1, n_points=n_points)

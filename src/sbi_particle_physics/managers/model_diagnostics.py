@@ -80,68 +80,15 @@ class ModelDiagnostics:
             stats_pp.append(ModelDiagnostics._summary_stats(x_pp[i]))
         stats_pp = torch.stack(stats_pp)
         stats_obs = ModelDiagnostics._summary_stats(x_o)
-
         S, D = stats_obs.shape
-
-        # fig, axes = plt.subplots(
-        #     S, D,
-        #     figsize=(3 * D, 3 * S),
-        #     squeeze=False,
-        # )
-
-        # for s in range(S):
-        #     for d in range(D):
-        #         ax = axes[s, d]
-
-        #         ax.boxplot(
-        #             stats_pp[:, s, d].cpu().numpy(),
-        #             vert=True,
-        #             widths=0.6,
-        #             showfliers=False,
-        #         )
-
-        #         # Observed statistic
-        #         ax.scatter(
-        #             1,
-        #             stats_obs[s, d].item(),
-        #             color="red",
-        #             zorder=3,
-        #             label="Observed" if (s == 0 and d == 0) else None,
-        #         )
-
-        #         ax.set_xticks([])
-        #         ax.set_title(rf"$s_{s}(x_{d})$")
-
-        # axes[0, 0].legend()
-        # plt.tight_layout()
-        # plt.show()
-
-        fig, axes = plt.subplots(
-            S, D,
-            figsize=(3 * D, 3 * S),
-            squeeze=False,
-        )
-
+        fig, axes = plt.subplots(S, D, figsize=(3 * D, 3 * S), squeeze=False)
         for s in range(S):
             for d in range(D):
                 ax = axes[s, d]
-
-                ax.violinplot(
-                    stats_pp[:, s, d].cpu().numpy(),
-                    showmeans=False,
-                    showmedians=True,
-                )
-
-                ax.scatter(
-                    1,
-                    stats_obs[s, d].item(),
-                    color="red",
-                    zorder=3,
-                )
-
+                ax.violinplot(stats_pp[:, s, d].cpu().numpy(), showmeans=False, showmedians=True)
+                ax.scatter(1, stats_obs[s, d].item(), color="red", zorder=3)
                 ax.set_xticks([])
                 ax.set_title(rf"$s_{s}(x_{d})$")
-
         fig.tight_layout()
         if path is None:
             fig.show()
@@ -296,7 +243,6 @@ class ModelDiagnostics:
             mode="x_space"
         )
         print("MMD p-value:", p_val) # needs to be larger than 0.05 to be sure there is no missspecification
-
         plt.figure(figsize=(6, 4), dpi=80)
         plt.hist(mmds_baseline.numpy(), bins=50, alpha=0.5, label="baseline")
         plt.axvline(mmd.item(), color="k", label=r"MMD(x, $x_o$)")
@@ -309,83 +255,40 @@ class ModelDiagnostics:
             plt.savefig(path)
 
     @staticmethod
-    def many_posteriors(
-        model : Model,
-        parameter_component_index : int,
-        x_min : int, x_max : int,
-        n_cols: int = 6,
-        n_rows: int = 5,
-        bins: int = 40,
-        figsize_per_plot=(3.0, 2.4),
-        path : Path = None
-    ):
+    def many_posteriors(model : Model, parameter_component_index : int, x_min : int, x_max : int, n_cols: int = 6, n_rows: int = 5, bins: int = 40, figsize_per_plot=(3.0, 2.4), path : Path = None):
         """
         Plot many 1D posteriors in a grid to verify the accuracy of the predictions
         """
         n_plots = n_cols * n_rows
         n_points = model.n_points
         n_samples = 1000
-
-        fig, axes = plt.subplots(
-            n_rows,
-            n_cols,
-            figsize=(figsize_per_plot[0] * n_cols,
-                     figsize_per_plot[1] * n_rows),
-            squeeze=False,
-        )
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(figsize_per_plot[0] * n_cols, figsize_per_plot[1] * n_rows), squeeze=False,)
 
         for i in range(n_plots):
             row = i // n_cols
             col = i % n_cols
             ax = axes[row, col]
-
-            true_parameter, observed_sample = model.get_random_true_parameter(n_points)
-            samples = model.draw_parameters_from_predicted_posterior(observed_sample, n_samples)
-
-            ax.hist(
-                samples[:,parameter_component_index],
-                bins=bins,
-                density=True,
-                alpha=0.6,
-                color="green",
-            )
+            true_parameter, _, samples = model.get_true_parameters_simulations_and_sampled_parameters(1, n_points, n_samples)
+            ax.hist(samples[:,parameter_component_index], bins=bins, density=True, alpha=0.6, color="green")
             ax.set_xlim(x_min, x_max)
-            ax.axvline(
-                true_parameter[parameter_component_index],
-                color="red",
-                linestyle="--",
-                linewidth=2,
-            )
-
+            ax.axvline(true_parameter[parameter_component_index], color="red", linestyle="--", linewidth=2)
             ax.tick_params(labelsize=TICK_FONTSIZE)
             ax.grid(True, alpha=0.3)
-
         # Hide unused axes
         for j in range(n_plots, n_plots):
             axes[j // n_cols, j % n_cols].axis("off")
-
         # Global legend (once)
         handles = [
             plt.Line2D([], [], color="green", alpha=0.6, linewidth=8, label="posterior"),
             plt.Line2D([], [], color="red", linestyle="--", linewidth=2, label="True value"),
         ]
-        fig.legend(
-            handles=handles,
-            loc="upper center",
-            ncol=2,
-            fontsize=LEGEND_FONTSIZE,
-            frameon=False,
-        )
+        fig.legend(handles=handles, loc="upper center", ncol=2, fontsize=LEGEND_FONTSIZE, frameon=False)
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         if path is None:
             fig.show()
         else:
             fig.savefig(path)
 
-
-# todo diagnostics de robustesse:
-# que se passe il avec moins de points ?
-# que se passe il avec plus de bruits ?
 
     @staticmethod
     def robustness_to_noise(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, deltas: list[float] | None = None, path : Path = None):
@@ -439,7 +342,7 @@ class ModelDiagnostics:
             else:
                 plt.savefig(path)
 
-        path.mkdir(parents=True, exist_ok=True)
+        if path is not None: path.mkdir(parents=True, exist_ok=True)
         _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.png")
         _plot(info_gains, r"Information gain", None if path is None else path / "info.png")
         _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.png")
@@ -518,7 +421,7 @@ class ModelDiagnostics:
             else:
                 plt.savefig(path)
 
-        path.mkdir(parents=True, exist_ok=True)
+        if path is not None: path.mkdir(parents=True, exist_ok=True)
         _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.png")
         _plot(info_gains, r"Information gain", None if path is None else path / "info.png")
         _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.png")
