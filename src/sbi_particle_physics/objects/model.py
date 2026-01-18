@@ -39,6 +39,9 @@ class Model:
         self.posterior = None
         self.training_loss : list[float] = []
         self.validation_loss : list[float] = []
+        self.best_val_loss : float = float("inf")
+        self.best_val_epoch : int = None
+        self.best_val_file : Path = None
         self.epoch : int = 0
         self.data_files_paths : list[Path] = [] # list and not set to keep order (deterministic loading if needed)
         self.n_points : int = n_points

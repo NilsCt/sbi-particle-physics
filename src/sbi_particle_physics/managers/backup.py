@@ -4,11 +4,10 @@ import torch
 from torch import Tensor
 from sbi_particle_physics.objects.model import Model
 from sbi_particle_physics.objects.normalizer import Normalizer
-import pickle
 from tqdm.notebook import tqdm
 from pathlib import Path
 from sbi_particle_physics.managers.plotter import Plotter
-from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN, ENCODED_POINT_DIM, DEFAULT_POINTS_PER_SAMPLE, PARAMETERS_DIM
+from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN, KEEP_LAST_N_BACKUPS
 import sbi
 
 
@@ -126,6 +125,8 @@ class Backup:
         mean, std = Backup.calculate_stats(files, batchsize=batchsize, device=device)
         data0, _, metadata = Backup.load_one_file(files[0], device)
         n_points = data0.shape[1]
+        if max_points is not None:
+            n_points = min(n_points, max_points)
         model = Model(device, n_points, seed)
 
         prior_low_raw = model.to_tensor(metadata['prior_low_raw'])
@@ -198,7 +199,7 @@ class Backup:
     @staticmethod
     def _load_util(file : Path, device : torch.device) -> tuple[Model, dict]:
         # its better to not pickle compex objects such as class, but instead their variables
-        save_dict = torch.load(file, map_location=device) # move every tensor in the dict to the specified device
+        save_dict = torch.load(file, map_location=device, weights_only=False) # move every tensor in the dict to the specified device
 
         # old_device = torch.device(save_dict['device'])
         model = Model(device, save_dict['n_points'], save_dict['seed'])
@@ -276,6 +277,12 @@ class Backup:
         raise FileNotFoundError(f"No file corresponding to epoch {epoch} in directory {directory}")
         
     @staticmethod
+    def get_all_backup_files(directory: Path) -> list[Path]:
+        pattern = MODEL_FILE_PATTERN.format(epoch="*")
+        files = sorted(directory.glob(pattern), key=Backup._extract_epoch)
+        return files
+    
+    @staticmethod
     def load_model_for_inference_basic(directory : Path, device : torch.device, epoch : int | None = None) -> Model: # useful method to load more easily a model
         file  = Backup._get_corresponding_file(directory, epoch)
         return Backup.load_model_for_inference(file, device)
@@ -317,12 +324,20 @@ class Backup:
             Backup.save_model(model, name)
             Plotter.plot_loss(model, directory / "loss")
             files.append(name)
-            if len(files) > 2: # we only keep the last 2 backups (because it takes a lot of space)
-                Path(files[0]).unlink()
-                files.remove(files[0])
-            if real_epoch < epoch: break # early_stopping detected
-            # it's normal that if the nn converges on a backup (exemple 110) then only the last file remains
-        
-        
 
+            # I keep the last 2 backups plus the best one
+            current_val_loss = model.validation_loss[-1]
+            if current_val_loss < model.best_val_loss:
+                model.best_val_loss = current_val_loss
+                model.best_val_epoch = real_epoch
+                model.best_val_file = name
+            files_sorted = sorted(files, key=Backup._extract_epoch) 
+            files_to_keep = []
+            files_to_keep.extend(files_sorted[-KEEP_LAST_N_BACKUPS:])
+            if model.best_val_file is not None and model.best_val_file not in files_to_keep:
+                files_to_keep.append(model.best_val_file)
+            for f in files_sorted: 
+                if f not in files_to_keep and f.exists(): f.unlink()
+            files = sorted(files_to_keep, key=Backup._extract_epoch)
 
+            if real_epoch < epoch: break # early stopping detected

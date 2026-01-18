@@ -15,6 +15,7 @@ DATA_DIRECTORY_PATTERN = "data_{id}" # important to keep "_" but the name before
 DATA_FILE_PATTERN = "data_{index}.pt"
 MODEL_DIRECTORY_PATTERN = "model_{id}"
 MODEL_FILE_PATTERN = "epoch_{epoch}.pt"
+KEEP_LAST_N_BACKUPS = 2
 
 # Data / Parameters    
 DATA_LABELS = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
@@ -67,8 +68,8 @@ DEFAULT_SAMPLE_WITH = "direct"
 # Training
 DEFAULT_DATA_FILE_BATCH_SIZE = 1
 DEFAULT_MAX_FILES = 200
-DEFAULT_STOP_AFTER_EPOCH = 100
-DEFAULT_MAX_EPOCHS = 400
+DEFAULT_STOP_AFTER_EPOCH = 200
+DEFAULT_MAX_EPOCHS = 1000
 
 # Plots
 AXIS_FONTSIZE = 21

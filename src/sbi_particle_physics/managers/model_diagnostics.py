@@ -15,6 +15,7 @@ from sbi.diagnostics.lc2st import LC2ST
 from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
 from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE
+from sbi_particle_physics.managers.predictions import Predictions
 
 class ModelDiagnostics:
     """
@@ -363,3 +364,148 @@ class ModelDiagnostics:
         else:
             fig.savefig(savepath, dpi=150)
             plt.close(fig)
+
+
+# todo diagnostics de robustesse:
+# que se passe il avec moins de points ?
+# que se passe il avec plus de bruits ?
+
+    @staticmethod
+    def robustness_to_noise(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, deltas: list[float] | None = None):
+        """
+        Diagnose robustness to small perturbations of the observed data.
+
+        Adds Gaussian noise of increasing amplitude to x_o and measures:
+            - average posterior width
+            - information gain
+            - log contraction
+            - drift of the posterior mean
+        A robust model should show smooth, monotonic degradation and low derivatives near delta=0.
+        """
+        if deltas is None: deltas = [0.0, 0.25, 0.5, 1.0, 2.0]
+        device = model.device
+        x_ref = model.normalizer.normalize_data(x_o_raw)
+        posterior_ref = model.draw_parameters_from_predicted_posterior(x_ref, n_parameters=n_posterior_samples)
+        mean_ref, _ = Predictions.calculate_estimator(posterior_ref)
+        prior_samples = model.prior.sample((n_posterior_samples,)).to(device)
+        avg_widths = []
+        info_gains = []
+        log_contrs = []
+        estimator_drifts = []
+
+        for delta in deltas:
+            if delta == 0.0:
+                x_delta = x_o_raw.clone()
+            else:
+                noise = delta * torch.randn_like(x_o_raw, device=device)
+                x_delta = x_o_raw + noise
+            # IMPORTANT Normalize AFTER noise addition
+            x_delta = model.normalizer.normalize_data(x_delta)
+
+            posterior = model.draw_parameters_from_predicted_posterior(x_delta, n_parameters=n_posterior_samples)
+            avg_widths.append(Predictions.average_uncertainty(posterior))
+            info_gains.append(Predictions.information_gain(prior_samples, posterior).mean().item())
+            log_contrs.append(Predictions.log_contraction(prior_samples, posterior).mean().item())
+            mean_delta, _ = Predictions.calculate_estimator(posterior)
+            drift = torch.norm(mean_delta - mean_ref).item()
+            estimator_drifts.append(drift)
+
+        def _plot(y, ylabel):
+            plt.figure(figsize=(5, 3))
+            plt.plot(deltas, y, marker="o")
+            plt.xlabel(r"Noise amplitude $\delta$")
+            plt.ylabel(ylabel)
+            plt.grid(alpha=0.3)
+            plt.tight_layout()
+            plt.show()
+
+        _plot(avg_widths, r"$\langle \sigma \rangle$")
+        _plot(info_gains, r"Information gain")
+        _plot(log_contrs, r"Log contraction")
+        _plot(estimator_drifts, r"$\|\hat{\theta}(\delta)-\hat{\theta}(0)\|$")
+
+        print("=== Robustness to noise summary ===")
+        for i, d in enumerate(deltas):
+            print(
+                f"δ={d:4.2f} | "
+                f"width={avg_widths[i]:.3e} | "
+                f"IG={info_gains[i]:.3f} | "
+                f"logC={log_contrs[i]:.3f} | "
+                f"drift={estimator_drifts[i]:.3e}"
+            )
+
+
+    @staticmethod
+    def robustness_to_npoints(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, n_list: list[int] | None = None, use_random_subsample: bool = False, number_of_ns: int = 10):
+        """
+        Diagnose robustness to fewer observed points by padding missing points with NaNs.
+
+        For each n in n_list:
+            - keep only n points (either first n, or random subsample)
+            - pad the remaining points with NaN
+            - infer posterior and compute metrics
+        Measures:
+            - average posterior width (68%)
+            - information gain
+            - log contraction
+            - drift of posterior mean relative to n = n_max
+        A robust model should degrade smoothly when n decreases:
+            width ↑, info gain ↓, log contraction ↓, drift grows smoothly.
+        """
+        device = model.device
+        if x_o_raw.ndim == 2: x_o_raw = x_o_raw.unsqueeze(0)
+        B, N_max, D = x_o_raw.shape
+        if n_list is None: # pas mettre en dessous de N/2
+            n_list = np.linspace(int(N_max/2), N_max, number_of_ns).astype(int).tolist()
+            n_list = sorted(list(set([max(1, n) for n in n_list])), reverse=True)
+        x_ref = model.normalizer.normalize_data(x_o_raw) # Reference (maximum points)
+        posterior_ref = model.draw_parameters_from_predicted_posterior(x_ref, n_parameters=n_posterior_samples)
+        mean_ref, _ = Predictions.calculate_estimator(posterior_ref)
+        prior_samples = model.prior.sample((n_posterior_samples,)).to(device)
+        avg_widths = []
+        info_gains = []
+        log_contrs = []
+        estimator_drifts = []
+
+        for n in n_list:
+            n = max(min(n, N_max), 1)
+            x_pad = torch.full((B, N_max, D), float("nan"), device=device)
+            if use_random_subsample:
+                idx = torch.randperm(N_max, device=device)[:n]
+                idx_sorted, _ = torch.sort(idx)
+                x_pad[:, :n, :] = x_o_raw[:, idx_sorted, :]
+            else:
+                x_pad[:, :n, :] = x_o_raw[:, :n, :]
+            x_n = model.normalizer.normalize_data(x_pad)
+            posterior = model.draw_parameters_from_predicted_posterior(x_n, n_parameters=n_posterior_samples)
+            avg_widths.append(Predictions.average_uncertainty(posterior))
+            info_gains.append(Predictions.information_gain(prior_samples, posterior).mean().item())
+            log_contrs.append(Predictions.log_contraction(prior_samples, posterior).mean().item())
+            mean_n, _ = Predictions.calculate_estimator(posterior)
+            drift = torch.norm(mean_n - mean_ref).item()
+            estimator_drifts.append(drift)
+
+        def _plot(y, ylabel):
+            plt.figure(figsize=(5, 3))
+            plt.plot(n_list, y, marker="o")
+            plt.xlabel(r"$n_\mathrm{points}$")
+            plt.ylabel(ylabel)
+            plt.grid(alpha=0.3)
+            plt.tight_layout()
+            plt.show()
+
+        _plot(avg_widths, r"$\langle \sigma \rangle$")
+        _plot(info_gains, r"Information gain")
+        _plot(log_contrs, r"Log contraction")
+        _plot(estimator_drifts, r"$\|\hat{\theta}(n)-\hat{\theta}(N)\|$")
+
+        print("=== Robustness to n_points summary ===")
+        for i, n in enumerate(n_list):
+            print(
+                f"n={n:4d} | "
+                f"width={avg_widths[i]:.3e} | "
+                f"IG={info_gains[i]:.3f} | "
+                f"logC={log_contrs[i]:.3f} | "
+                f"drift={estimator_drifts[i]:.3e}"
+            )
+
