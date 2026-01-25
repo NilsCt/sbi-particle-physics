@@ -1,0 +1,19 @@
+executable = run_data_generation.sh
+
+# il faut modifier start_index et amount_per_worker dans le fichier .sh
+
+arguments = \
+  $(Process) \
+  --directory data_3 \
+  --n-samples 50 \
+  --n-points 10000
+
+output = logs/out.$(CLUSTER).$(PROCESS)
+error  = logs/err.$(CLUSTER).$(PROCESS)
+log    = logs/log.$(CLUSTER).$(PROCESS)
+
+request_cpus = 1
+request_memory = 2000
++MaxRuntime = 21600
+
+queue 2

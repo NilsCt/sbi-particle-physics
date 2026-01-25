@@ -1,0 +1,19 @@
+executable = run_resume_training.sh
+
+arguments = \
+  --training-id 25 \
+  --data-dir data_3 \
+  --device cpu \
+  --run-diagnostics \
+  --n-diagnostic-files 5
+
+output = logs/out.$(CLUSTER).$(PROCESS)
+error  = logs/err.$(CLUSTER).$(PROCESS)
+log    = logs/log.$(CLUSTER).$(PROCESS)
+
+request_cpus = 2
+request_memory = 10000
+
++MaxRuntime = 1000
+
+queue

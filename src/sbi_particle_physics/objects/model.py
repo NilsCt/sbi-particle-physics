@@ -266,3 +266,67 @@ class Model:
 
         if self.posterior is not None:
             self.posterior.to(device)
+
+
+    def info(self):
+        print("=" * 60)
+        print("Model information")
+        print("=" * 60)
+        print(f"Device: {self.device}")
+        print(f"Seed: {self.seed}")
+        print(f"Epoch: {self.epoch}")
+        print(f"n_points (per sample): {self.n_points}")
+        print()
+        print("Prior:")
+        print(f"  Type: {self.prior_type}")
+        if self.prior is not None:
+            print(f"  Bounds: low={self.prior.low.cpu().numpy()}, high={self.prior.high.cpu().numpy()}")
+        else:
+            print("  Not set")
+        print()
+        print("Simulator:")
+        if self.simulator is not None:
+            print(f"  stride={self.simulator.stride}, pre_N={self.simulator.pre_N}, preruns={self.simulator.preruns}")
+        else:
+            print("  Not set")
+        print()
+        print("Normalizer:")
+        if self.normalizer is not None:
+            print("  Initialized")
+        else:
+            print("  Not set")
+        print()
+        print("Architecture:")
+        print(f"  Encoder:")
+        print(f"    trial_num_layers = {self.trial_num_layers}")
+        print(f"    trial_num_hiddens = {self.trial_num_hiddens}")
+        print(f"    trial_embedding_dim = {self.trial_embedding_dim}")
+        print(f"    aggregated_num_layers = {self.aggregated_num_layers}")
+        print(f"    aggregated_num_hiddens = {self.aggregated_num_hiddens}")
+        print(f"    aggregated_output_dim = {self.aggregated_output_dim}")
+        print(f"    encoder_activation_function = {self.encoder_activation_function} (fixed in sbi)")
+        print()
+        print("NSF (density estimator):")
+        print(f"  nsf_hidden_features = {self.nsf_hidden_features}")
+        print(f"  nsf_num_transforms = {self.nsf_num_transforms}")
+        print(f"  nsf_num_bins = {self.nsf_num_bins}")
+        print(f"  nsf_activation_function = {self.nsf_activation_function}")
+        print(f"  weight_decay = {self.weight_decay}")
+        print()
+        print("Training:")
+        print(f"  Training loss entries: {len(self.training_loss)}")
+        print(f"  Validation loss entries: {len(self.validation_loss)}")
+        if self.best_val_epoch is not None:
+            print(f"  Best validation loss: {self.best_val_loss:.4e} at epoch {self.best_val_epoch}")
+        else:
+            print("  Best validation loss: not set")
+        print()
+        print("Data:")
+        print(f"  Number of data files: {len(self.data_files_paths)}")
+        print()
+        print("Posterior:")
+        if self.posterior is not None:
+            print("  Built")
+        else:
+            print("  Not built")
+        print("=" * 60)

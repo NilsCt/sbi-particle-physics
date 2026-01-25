@@ -7,3 +7,4 @@ nohup.out
 *.egg-info/
 .vscode/
 .venv/
+**/logs/

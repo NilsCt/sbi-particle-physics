@@ -1,0 +1,20 @@
+executable = run_training.sh
+
+arguments = \
+  --training-id 29 \
+  --data-dir data_3 \
+  --max-files 400 \
+  --device cpu \
+  --run-diagnostics \
+  --n-diagnostic-files 5
+
+output = logs/out.$(CLUSTER).$(PROCESS)
+error  = logs/err.$(CLUSTER).$(PROCESS)
+log    = logs/log.$(CLUSTER).$(PROCESS)
+
+request_cpus = 2
+request_memory = 14000
+
++MaxRuntime = 172800
+
+queue

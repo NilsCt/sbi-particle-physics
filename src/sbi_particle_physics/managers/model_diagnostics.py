@@ -1,3 +1,4 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import torch
 from torch import Tensor
@@ -17,6 +18,14 @@ from sbi.analysis import pairplot
 from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE
 from sbi_particle_physics.managers.predictions import Predictions
 from pathlib import Path
+
+matplotlib.use("Agg")
+matplotlib.rcParams.update({
+    "text.usetex": False,
+    "mathtext.fontset": "dejavusans",
+    "font.family": "sans-serif",
+    "font.sans-serif": ["DejaVu Sans"],
+})
 
 class ModelDiagnostics:
     """
@@ -343,10 +352,10 @@ class ModelDiagnostics:
                 plt.savefig(path)
 
         if path is not None: path.mkdir(parents=True, exist_ok=True)
-        _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.png")
-        _plot(info_gains, r"Information gain", None if path is None else path / "info.png")
-        _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.png")
-        _plot(estimator_drifts, r"$\|\hat{\theta}(\delta)-\hat{\theta}(0)\|$", None if path is None else path / "drift.png")
+        _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.pdf")
+        _plot(info_gains, r"Information gain", None if path is None else path / "info.pdf")
+        _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.pdf")
+        _plot(estimator_drifts, r"$\|\hat{\theta}(\delta)-\hat{\theta}(0)\|$", None if path is None else path / "drift.pdf")
 
         print("=== Robustness to noise summary ===")
         for i, d in enumerate(deltas):
@@ -422,10 +431,10 @@ class ModelDiagnostics:
                 plt.savefig(path)
 
         if path is not None: path.mkdir(parents=True, exist_ok=True)
-        _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.png")
-        _plot(info_gains, r"Information gain", None if path is None else path / "info.png")
-        _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.png")
-        _plot(estimator_drifts, r"$\|\hat{\theta}(n)-\hat{\theta}(N)\|$", None if path is None else path / "drift.png")
+        _plot(avg_widths, r"$\langle \sigma \rangle$", None if path is None else path / "width.pdf")
+        _plot(info_gains, r"Information gain", None if path is None else path / "info.pdf")
+        _plot(log_contrs, r"Log contraction", None if path is None else path / "contraction.pdf")
+        _plot(estimator_drifts, r"$\|\hat{\theta}(n)-\hat{\theta}(N)\|$", None if path is None else path / "drift.pdf")
 
         print("=== Robustness to n_points summary ===")
         for i, n in enumerate(n_list):
@@ -437,3 +446,31 @@ class ModelDiagnostics:
                 f"drift={estimator_drifts[i]:.3e}"
             )
 
+
+    @staticmethod
+    def do_them_all(model : Model, subdirectory : Path, raw_data : Tensor, raw_parameters : Tensor, num_posterior_samples : int = 1000):
+        # sensitive to changes of the config
+        subdirectory.mkdir(parents=True, exist_ok=True)
+        
+        data = model.normalizer.normalize_data(raw_data[:,:model.n_points])
+        parameters = model.normalizer.normalize_parameters(raw_parameters[:,:model.n_points])
+
+        ModelDiagnostics.simulation_based_calibration(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "sbc.pdf")
+
+        ModelDiagnostics.expected_coverage_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "ect.pdf")
+
+        ModelDiagnostics.tarp_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "tarp.pdf")
+
+        ModelDiagnostics.misspecification_test(model, data[-1002:-2], x_o=data[-1], path=subdirectory / "miss.pdf")
+
+        ModelDiagnostics.misspecification_test_mmd(model, data[-1002:-2], x_o=data[-1], path=subdirectory / "mmmd.pdf")
+        # only needs to be between 0.2->0.8 (model is wrong if <0.05)
+
+        ModelDiagnostics.many_posteriors(model, parameter_component_index=0, x_min=3, x_max=5, path=subdirectory / "many.pdf") # component 0 of the parameters (C_9)
+
+        ModelDiagnostics.posterior_predictive_checks(model, x_o=data[-1], n_samples=200, n_points=model.n_points, path=subdirectory/ "ppc.pdf")
+
+        deltas = np.linspace(0.0, 0.3, 15).tolist()
+        ModelDiagnostics.robustness_to_noise(model, x_o_raw=raw_data[-100:], n_posterior_samples=num_posterior_samples, deltas=deltas, path = subdirectory / "noise")
+
+        ModelDiagnostics.robustness_to_npoints(model, x_o_raw=raw_data[-100:], n_posterior_samples=num_posterior_samples, use_random_subsample=False, number_of_ns=20, path = subdirectory / "npoints")
