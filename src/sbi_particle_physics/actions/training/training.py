@@ -62,6 +62,7 @@ def main():
 
 # trained nn
 # * : need resume training
+# * 12 n points 10 000 and many backup files (to check progress as a function of epoch)
 # * 13 n points 8000
 # * 14 n points 6000
 # * 15 n points 4000
@@ -71,18 +72,17 @@ def main():
 # 19 n points 500
 # 20 n points 300
 # 21 n points 150
+# * 23 n files 350
+# * 24 n files 300
+# * 25 n files 200
 # 26 n files 100
 # 27 n files 50
 # * 28 GeLU NSF # ca se trouve je me suis trompé et c'est SiLU
 
 # training nn
-# * 12 n points 10 000 and many backup files (to check progress as a function of epoch)
-# * 23 n files 350
-# * 24 n files 300
-# * 25 n files 200
+# 29 SiLU NSF
 
 # nn that need to be trained
-# 29 SiLU NSF
 # 30, ... change architecture ? -> improve encoder
 
 if __name__ == "__main__":

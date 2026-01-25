@@ -2,6 +2,7 @@ import torch
 from torch import Tensor
 import numpy as np
 from sbi_particle_physics.objects.simulator import Simulator
+from sbi_particle_physics.objects.imperfections import Imperfections
 from sbi_particle_physics.objects.normalizer import Normalizer
 from sbi.inference import NPE
 from sbi.neural_nets import posterior_nn
@@ -74,8 +75,11 @@ class Model:
         high = self.to_tensor(raw_high)
         self.set_prior(low, high)
 
-    def set_simulator(self, stride : int, pre_N : int, preruns : int):
+    def set_simulator(self, stride : int, pre_N : int, preruns : int, *, use_imperfections: bool = False, **imperfections):
         self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns)
+        if use_imperfections:
+            imperfections = Imperfections(device=self.device, rng=self.rng, **imperfections)
+            self.simulator.set_imperfection(imperfections)
 
     def set_normalizer(self, data_mean : Tensor, data_std : Tensor):
         self.normalizer = Normalizer(self.device, data_mean, data_std)

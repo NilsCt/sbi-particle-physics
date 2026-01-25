@@ -141,6 +141,36 @@ class Backup:
 
     @staticmethod
     def save_model(model : Model, file : Path):
+        imperfections = None
+        if hasattr(model.simulator, "imperfections") and model.simulator.imperfections is not None:
+            imp = model.simulator.imperfections
+            imperfections = {
+                "use_acceptance": imp.use_acceptance, # Flags
+                "use_resolution": imp.use_resolution,
+                "use_background": imp.use_background,
+
+                "acc_beta0_mean": imp.acc_beta0_mean, # Acceptance priors
+                "acc_beta0_std": imp.acc_beta0_std,
+                "acc_a_l_std": imp.acc_a_l_std,
+                "acc_a_k_std": imp.acc_a_k_std,
+                "acc_a_phi_std": imp.acc_a_phi_std,
+                "acc_b_phi_std": imp.acc_b_phi_std,
+                "acc_a_q2_std": imp.acc_a_q2_std,
+
+                "q2_sigma_core": imp.q2_sigma_core, # Resolution priors
+                "q2_sigma_tail": imp.q2_sigma_tail,
+                "q2_tail_fraction": imp.q2_tail_fraction,
+                "q2_sigma_slope": imp.q2_sigma_slope,
+                "cos_theta_sigma": imp.cos_theta_sigma,
+                "phi_sigma": imp.phi_sigma,
+
+                "background_fraction": imp.background_fraction, # Background
+                "background_q2_lambda": imp.background_q2_lambda,
+
+                "q2_min": imp.q2_min, # Physical bounds
+                "q2_max": imp.q2_max,
+            }
+
         posterior_cpu = model.posterior
         if posterior_cpu is not None:
             posterior_cpu.to("cpu") # avec sbi ca modifie l'objet en place (comme moi)
@@ -156,6 +186,7 @@ class Backup:
             'stride': model.simulator.stride, # simulator
             'pre_N': model.simulator.pre_N,
             'preruns': model.simulator.preruns,
+            'imperfections': imperfections,
 
             'data_mean': model.normalizer.data_mean.cpu(), # normalizer
             'data_std': model.normalizer.data_std.cpu(),
@@ -210,7 +241,11 @@ class Backup:
         model.prior_type = save_dict['prior_type']
         model.set_prior(save_dict['prior_low'], save_dict['prior_high'])
 
-        model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'])
+        imperfections_cfg = save_dict.get("imperfections", None)
+        if imperfections_cfg is None:
+            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'])
+        else:
+            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'], use_imperfections=True, **imperfections_cfg)
 
         model.set_normalizer(save_dict['data_mean'], save_dict['data_std'])
 
