@@ -3,14 +3,16 @@ from sbi_particle_physics.config import MODELS_DIR, DEFAULT_STOP_AFTER_EPOCH, DE
 import torch
 from sbi_particle_physics.managers.model_diagnostics import ModelDiagnostics
 import argparse
-import matplotlib
 
-matplotlib.use("Agg") # batch-safe plotting
+# ===== BATCH-SAFE MATPLOTLIB CONFIG =====
+import matplotlib
+matplotlib.use("Agg")
 matplotlib.rcParams.update({
     "text.usetex": False,
     "font.family": "sans-serif",
     "font.sans-serif": ["DejaVu Sans"],
 })
+# =======================================
 
 def main():
     parser = argparse.ArgumentParser()

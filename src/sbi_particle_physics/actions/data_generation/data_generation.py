@@ -24,6 +24,8 @@ def main():
     parser.add_argument("--pre-N", type=int, default=DEFAULT_PRE_N)
     parser.add_argument("--preruns", type=int, default=DEFAULT_PRERUNS)
 
+    parser.add_argument("--use-imperfections", type=bool, default=False)
+
     args = parser.parse_args()
     print("RAW ARGS:", vars(args))
 
@@ -34,7 +36,7 @@ def main():
     prior_high_raw = model.to_tensor([args.prior_high])
 
     model.set_prior(prior_low_raw, prior_high_raw)
-    model.set_simulator(stride=args.stride, pre_N=args.pre_N, preruns=args.preruns)
+    model.set_simulator(stride=args.stride, pre_N=args.pre_N, preruns=args.preruns, use_imperfections=args.use_imperfections)
     directory = DATA_DIR / args.directory
     print(f"Generating data in {directory}, "f"start={args.start_index}, amount={args.amount}")
 

@@ -8,12 +8,14 @@ arguments = \
   --n-samples 50 \
   --n-points 10000
 
+# PAS OUBLIER DE MODIFIER START_INDEX ET AMOOUNT_PER_WORKER DANS .SH
+
 output = logs/out.$(CLUSTER).$(PROCESS)
 error  = logs/err.$(CLUSTER).$(PROCESS)
 log    = logs/log.$(CLUSTER).$(PROCESS)
 
 request_cpus = 1
-request_memory = 2000
-+MaxRuntime = 21600
+request_memory = 1000
++MaxRuntime = 36000
 
 queue 50

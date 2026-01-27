@@ -1,9 +1,9 @@
 executable = run_validation.sh
 
 arguments = \
-  --model-dir training_12 \
+  --model-dir training_19 \
   --data-dir data_3 \
-  --plot-dir training_12 \
+  --plot-dir training_19 \
   --number-data-files 5 \
   --device cpu
 
@@ -12,7 +12,7 @@ error  = logs/err.$(CLUSTER).$(PROCESS)
 log    = logs/log.$(CLUSTER).$(PROCESS)
 
 request_cpus = 2
-request_memory = 8000
-+MaxRuntime = 18000
+request_memory = 10000
++MaxRuntime = 36000
 
 queue

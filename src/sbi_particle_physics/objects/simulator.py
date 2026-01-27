@@ -49,16 +49,19 @@ class Simulator:
 
     def simulate_a_sample(self, raw_parameter: Tensor, n_points: int) -> Tensor:
         self.set_eos_parameter(raw_parameter)
-        collected = []
-        n_target = n_points
-        n_generated = n_points if self.imperfections is None else int(n_points * IMPERFECTIONS_OVERSAMPLE_FACTOR) 
+        n_target = int(n_points)
+        n_generated = n_target if self.imperfections is None else int(n_target * IMPERFECTIONS_OVERSAMPLE_FACTOR)
         tries = 0
+        collected = None  # will become a Tensor of shape (N_collected, D)
 
-        while len(collected) < n_target:
+        while True:
+            n_collected = 0 if collected is None else collected.shape[0]
+            if n_collected >= n_target: 
+                break
             if tries >= IMPERFECTIONS_MAX_TRIES:
-                raise RuntimeError(f"Could not collect {n_points} accepted events (only {len(collected)})")
+                raise RuntimeError(f"Could not collect {n_target} accepted events (only {n_collected})")
 
-            raw_sample, _ = self.distribution.sample_mcmc(
+            raw_sample, _ = self.distributions.sample_mcmc(
                 N=n_generated,
                 stride=self.stride,
                 pre_N=self.pre_N,
@@ -67,14 +70,14 @@ class Simulator:
             )
             x = self.to_tensor(raw_sample)
 
-            if self.imperfection is not None:
-                x = self.imperfection.apply(x)
+            if self.imperfections is not None:
+                x = self.imperfections.apply(x)
 
-            collected.append(x)
-            collected = [torch.cat(collected, dim=0)]
+            collected = x if collected is None else torch.cat([collected, x], dim=0)
             tries += 1
 
-        return collected[0][:n_target]
+        return collected[:n_target]
+
 
     def simulate_samples(self, raw_parameters : Tensor, n_points : int) -> Tensor:
         raw_data = []

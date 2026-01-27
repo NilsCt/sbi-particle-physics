@@ -19,14 +19,6 @@ from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE
 from sbi_particle_physics.managers.predictions import Predictions
 from pathlib import Path
 
-matplotlib.use("Agg")
-matplotlib.rcParams.update({
-    "text.usetex": False,
-    "mathtext.fontset": "dejavusans",
-    "font.family": "sans-serif",
-    "font.sans-serif": ["DejaVu Sans"],
-})
-
 class ModelDiagnostics:
     """
     Test, quantify and visualize the performance of a model

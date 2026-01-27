@@ -79,7 +79,7 @@ class Model:
         self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns)
         if use_imperfections:
             imperfections = Imperfections(device=self.device, rng=self.rng, **imperfections)
-            self.simulator.set_imperfection(imperfections)
+            self.simulator.set_imperfections(imperfections)
 
     def set_normalizer(self, data_mean : Tensor, data_std : Tensor):
         self.normalizer = Normalizer(self.device, data_mean, data_std)

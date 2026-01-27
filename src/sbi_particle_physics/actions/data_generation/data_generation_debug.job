@@ -2,12 +2,13 @@ executable = run_data_generation.sh
 
 arguments = \
   $(Process) \
-  --directory data_3 \
+  --directory data_4 \
   --n-samples 3 \
   --n-points 5 \
   --stride 2 \
   --preruns 2 \
   --pre-N 2 \
+  --use-imperfections
 
 output = logs/out.$(CLUSTER).$(PROCESS)
 error  = logs/err.$(CLUSTER).$(PROCESS)

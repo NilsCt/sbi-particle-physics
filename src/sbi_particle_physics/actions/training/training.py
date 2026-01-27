@@ -4,15 +4,15 @@ import torch
 from sbi_particle_physics.managers.model_diagnostics import ModelDiagnostics
 import argparse
 
+# ===== BATCH-SAFE MATPLOTLIB CONFIG =====
 import matplotlib
-
-# batch-safe plotting
 matplotlib.use("Agg")
 matplotlib.rcParams.update({
     "text.usetex": False,
     "font.family": "sans-serif",
     "font.sans-serif": ["DejaVu Sans"],
 })
+# =======================================
 
 def main():
     parser = argparse.ArgumentParser()
@@ -73,7 +73,6 @@ def main():
 # 20 n points 300
 # 21 n points 150
 # * 23 n files 350
-# * 24 n files 300
 # * 25 n files 200
 # 26 n files 100
 # 27 n files 50
@@ -81,9 +80,14 @@ def main():
 
 # training nn
 # 29 SiLU NSF
+# * 24 n files 300 a 2001 epoch quand relancer
+# 30 normal 
 
 # nn that need to be trained
 # 30, ... change architecture ? -> improve encoder
+
+# condor_q nrc25 -hold -af ClusterId ProcId HoldReason
+
 
 if __name__ == "__main__":
     main()
