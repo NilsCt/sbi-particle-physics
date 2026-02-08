@@ -10,6 +10,8 @@ DEFAULT_SEED = 42
 # Paths / filenaming
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
+REAL_DATA = DATA_DIR / "real_data"
+IMPERFECTIONS = PROJECT_ROOT / "imperfections"
 MODELS_DIR = PROJECT_ROOT / "models"
 PLOTS_DIR = PROJECT_ROOT / "plots"
 DATA_DIRECTORY_PATTERN = "data_{id}" # important to keep "_" but the name before can be changed
@@ -18,7 +20,10 @@ MODEL_DIRECTORY_PATTERN = "model_{id}"
 MODEL_FILE_PATTERN = "epoch_{epoch}.pt"
 KEEP_LAST_N_BACKUPS = 2
 
-# Data / Parameters    
+# Data / Parameters 
+C9_SM = 4.27 # theorical C_9
+C9 = C9_SM - 0.7 # empirical C_9
+C9_uncertainty = 0.2 # 0.2-0.3
 DATA_LABELS = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
 ENCODED_DATA_LABELS = ["$q^2$", "$\\cos \\theta_l$", "$\\cos \\theta_d$", "$\\cos \\phi$", "$\\sin \\phi$"]
 ENCODED_POINT_DIM = 5 # q^2, \cos \theta_l, \cos \theta_d, \cos \phi, \sin \phi
@@ -83,23 +88,27 @@ TICK_FONTSIZE = 15
 # Imperfections
 IMPERFECTIONS_OVERSAMPLE_FACTOR = 1.5
 IMPERFECTIONS_MAX_TRIES = 10
-IMP_ACC_BETA0_MEAN = 0.0 # acceptance
-IMP_ACC_BETA0_STD = 0.3
-IMP_ACC_A_L_STD = 0.2
-IMP_ACC_A_K_STD = 0.2
-IMP_ACC_A_PHI_STD = 0.1
-IMP_ACC_B_PHI_STD = 0.1
-IMP_ACC_A_Q2_STD = 0.15
 
-IMP_Q2_SIGMA_CORE = 0.08 # resolution
-IMP_Q2_SIGMA_TAIL = 0.25
-IMP_Q2_TAIL_FRACTION = 0.08
-IMP_Q2_SIGMA_SLOPE = 0.05
-IMP_COS_THETA_SIGMA = 0.03
-IMP_PHI_SIGMA = 0.03
+MKPI = 0.892
+ACCEPTANCE_COEFFS_PATH = IMPERFECTIONS / "2017_nominal_B0_highq2.dat"
 
-IMP_BACKGROUND_FRACTION = 0.1 # background
-IMP_BACKGROUND_Q2_LAMBDA = 0.5
+RESOLUTION_Q2_SIGMA_CORE = 0.05 # GeV^2
+RESOLUTION_Q2_SIGMA_TAIL = 0.20 # GeV^2
+RESOLUTION_Q2_TAIL_FRACTION = 0.10
+RESOLUTION_Q2_SIGMA_SLOPE = 0.00 # optional: sigma = base*(1 + slope*q2)
+RESOLUTION_COSTHETA_SIGMA = 0.02
+RESOLUTION_PHI_SIGMA = 0.02
+RESOLUTION_Q2_MIN = 0.9
+RESOLUTION_Q2_MAX = 19.1
 
-IMP_Q2_MIN = 0.0 # physical bounds
-IMP_Q2_MAX = 6.0
+BACKGROUND_CTL_P1 = 0.47729639827133913
+BACKGROUND_CTL_P2 = 0.20711973237496167
+BACKGROUND_CTK_P1 = 0.08340808277703779
+BACKGROUND_CTK_P2 = 0.3354274513791995
+BACKGROUND_PHI_P1 = 0.22164874798386383
+BACKGROUND_PHI_P2 = 0.06741043820550917
+BACKGROUND_TAU_BKG_MB = -5.745 # background mB exponential slope en GeV^-1
+BACKGROUND_FSIG_MB_WINDOW = 0.770766 # signal fraction in mB window
+BACKGROUND_MB_MIN, BACKGROUND_MB_MAX = 5.170, 5.700 # GeV
+BACKGROUND_MB_SIG_MEAN, BACKGROUND_MB_SIG_SIGMA = 5.279, 0.015 # GeV
+

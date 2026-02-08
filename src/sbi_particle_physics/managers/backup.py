@@ -149,28 +149,30 @@ class Backup:
                 "use_resolution": imp.use_resolution,
                 "use_background": imp.use_background,
 
-                "acc_beta0_mean": imp.acc_beta0_mean, # Acceptance priors
-                "acc_beta0_std": imp.acc_beta0_std,
-                "acc_a_l_std": imp.acc_a_l_std,
-                "acc_a_k_std": imp.acc_a_k_std,
-                "acc_a_phi_std": imp.acc_a_phi_std,
-                "acc_b_phi_std": imp.acc_b_phi_std,
-                "acc_a_q2_std": imp.acc_a_q2_std,
-
-                "q2_sigma_core": imp.q2_sigma_core, # Resolution priors
-                "q2_sigma_tail": imp.q2_sigma_tail,
-                "q2_tail_fraction": imp.q2_tail_fraction,
-                "q2_sigma_slope": imp.q2_sigma_slope,
-                "cos_theta_sigma": imp.cos_theta_sigma,
-                "phi_sigma": imp.phi_sigma,
-
-                "background_fraction": imp.background_fraction, # Background
-                "background_q2_lambda": imp.background_q2_lambda,
-
-                "q2_min": imp.q2_min, # Physical bounds
-                "q2_max": imp.q2_max,
-            }
-
+                "mkpi" : imp.mkpi,
+                "q2_min": imp.q2_min,
+                "q2_max" : imp.q2_max,
+                "acceptance_coeffs_path" : imp.acceptance_coeffs_path,
+                "acceptance_orders" : imp.acceptance_orders,
+                "acceptance_ranges_dict" : imp.acceptance_ranges_dict,
+                "acceptance_coeffs" : imp.acceptance_coeffs,
+                "resolution_q2_sigma_core" : imp.resolution_q2_sigma_core,
+                "resolution_q2_sigma_tail" : imp.resolution_q2_sigma_tail,
+                "resolution_q2_tail_fraction" : imp.resolution_q2_tail_fraction,
+                "resolution_q2_sigma_slope" : imp.resolution_q2_sigma_slope,
+                "resolution_cos_theta_sigma" : imp.resolution_cos_theta_sigma,
+                "resolution_phi_sigma" : imp.resolution_phi_sigma,
+                "background_ctl_p1" : imp.background_ctl_p1,
+                "background_ctl_p2" : imp.background_ctl_p2,
+                "background_ctk_p1" : imp.background_ctk_p1,
+                "background_ctk_p2" : imp.background_ctk_p2,
+                "background_phi_p1" : imp.background_phi_p1,
+                "background_phi_p2" : imp.background_phi_p2,
+                "background_tau_bkg_mb" : imp.background_tau_bkg_mb,
+                "background_mb_min" : imp.background_mb_min,
+                "background_mb_max" : imp.background_mb_max,
+                "background_fsig_mb_window" : imp.background_fsig_mb_window
+        }
         posterior_cpu = model.posterior
         if posterior_cpu is not None:
             posterior_cpu.to("cpu") # avec sbi ca modifie l'objet en place (comme moi)
