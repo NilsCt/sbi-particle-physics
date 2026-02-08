@@ -16,6 +16,7 @@ MODELS_DIR = PROJECT_ROOT / "models"
 PLOTS_DIR = PROJECT_ROOT / "plots"
 DATA_DIRECTORY_PATTERN = "data_{id}" # important to keep "_" but the name before can be changed
 DATA_FILE_PATTERN = "data_{index}.pt"
+REAL_DATA_FILE_PATTERN = "dataset_bin_{bin}_job_{job1}_{job2}.root"
 MODEL_DIRECTORY_PATTERN = "model_{id}"
 MODEL_FILE_PATTERN = "epoch_{epoch}.pt"
 KEEP_LAST_N_BACKUPS = 2
@@ -32,11 +33,17 @@ PARAMETERS_DIM = 1
 
 # EOS
 EOS_KINEMATICS = {
-            's':             2.0,   's_min':             1,       's_max' :            8.0,
+            's':             2.0,   's_min':             4,       's_max' :            6.0,
             'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
             'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
             'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
 }
+#EOS_KINEMATICS = {
+#            's':             2.0,   's_min':             1,       's_max' :            8.0,
+#            'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
+#            'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
+#            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
+#}
 EOS_OPTIONS = {
             'l': 'mu',
             'q': 'd',
@@ -86,7 +93,7 @@ LEGEND_FONTSIZE = 15
 TICK_FONTSIZE = 15 
 
 # Imperfections
-IMPERFECTIONS_OVERSAMPLE_FACTOR = 1.5
+IMPERFECTIONS_OVERSAMPLE_FACTOR = 3
 IMPERFECTIONS_MAX_TRIES = 10
 
 MKPI = 0.892
@@ -112,3 +119,6 @@ BACKGROUND_FSIG_MB_WINDOW = 0.770766 # signal fraction in mB window
 BACKGROUND_MB_MIN, BACKGROUND_MB_MAX = 5.170, 5.700 # GeV
 BACKGROUND_MB_SIG_MEAN, BACKGROUND_MB_SIG_SIGMA = 5.279, 0.015 # GeV
 
+# Real data
+TREE_NAME = "DecayTree"
+BRANCHES = ["q2", "ctl", "ctk", "phi"]

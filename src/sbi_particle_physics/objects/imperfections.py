@@ -168,6 +168,7 @@ class Imperfections:
         Lphi = self._smart_legendre_all(phi, "phi")
         # eps[b] = sum_{j,k,m,n} C4[j,k,m,n] * Lq2[b,j]*Lctl[b,k]*Lctk[b,m]*Lphi[b,n]
         eps = torch.einsum("bj,bk,bm,bn,jkmn->b", Lq2, Lctl, Lctk, Lphi, self.acceptance_coeffs)
+        eps = torch.clamp(eps, 0.0, 1.0)
         u = torch.rand(len(x), device=self.device)
         return x[u < eps] # Accept-reject
 
@@ -234,7 +235,7 @@ class Imperfections:
 
     def _apply_background(self, x: Tensor) -> Tensor:
         n_sig = len(x)
-        n_bkg = int(n_sig / (1.0 - self.background_fsig_mb_window)) + 1 # crash if 0
+        n_bkg = int(n_sig * (1.0/self.background_fsig_mb_window - 1)) + 1 # crash if 0
         x_bkg, _ = self._sample_background_events(n=n_bkg)
         x_all = torch.cat([x, x_bkg], dim=0) # doesn't replace real events but add new background events (to optimize time)
         perm = torch.randperm(len(x_all), device=self.device)

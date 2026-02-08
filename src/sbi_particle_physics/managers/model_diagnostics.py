@@ -169,7 +169,7 @@ class ModelDiagnostics:
         return stats_2d.reshape(-1)
 
     @staticmethod
-    def misspecification_test(model: Model, x_train: Tensor, x_o: Tensor, path : Path = None):
+    def misspecification_test(x_train: Tensor, x_o: Tensor, path : Path = None):
         """
         Misspecification Test
         Model misspecification occurs when the true data-generating process
@@ -218,7 +218,7 @@ class ModelDiagnostics:
 
 
     @staticmethod
-    def misspecification_test_mmd(model : Model, x_train : Tensor, x_o : Tensor, path : Path = None):
+    def misspecification_test_mmd(x_train : Tensor, x_o : Tensor, path : Path = None):
         """
         Misspecification Test using MMD
         Uses Maximum Mean Discrepancy (MMD) to measure the distance
