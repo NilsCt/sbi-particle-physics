@@ -62,29 +62,29 @@ def main():
 
 # trained nn
 # * : need resume training
-# * 12 n points 10 000 and many backup files (to check progress as a function of epoch)
-# * 13 n points 8000
-# * 14 n points 6000
-# * 15 n points 4000
-# * 16 n points 2000
-# * 17 n points 1000
-# * 18 n points 800
 # 19 n points 500
 # 20 n points 300
 # 21 n points 150
-# * 23 n files 350
-# * 25 n files 200
-# 26 n files 100
-# 27 n files 50
-# * 28 GeLU NSF # ca se trouve je me suis trompé et c'est SiLU
 
 # training nn
-# 29 SiLU NSF
-# * 24 n files 300 a 2001 epoch quand relancer
+# ** 12 n points 10 000 and many backup files (to check progress as a function of epoch)
+# * 13 n points 8000
+# * 14 n points 6000
+# ** 15 n points 4000
+# * 16 n points 2000
+# * 17 n points 1000
+# * 18 n points 800
+# * 29 SiLU NSF
+# * 23 n files 350
+# * 24 n files 300 
+# * 25 n files 200
+# * 26 n files 100
+# * 27 n files 50
+# ** 28 GeLU NSF # ca se trouve je me suis trompé et c'est SiLU
 # 30 normal 
 
 # nn that need to be trained
-# 30, ... change architecture ? -> improve encoder
+# 31, ... change architecture ? -> improve encoder
 
 # condor_q nrc25 -hold -af ClusterId ProcId HoldReason
 

@@ -61,9 +61,14 @@ class Backup:
     
     @staticmethod
     def load_one_file(file : Path, device : torch.device) -> tuple[Tensor, Tensor, dict]:
+        print("Loading a file")
         checkpoint = torch.load(file, weights_only=False, map_location=device)
         file_raw_data = checkpoint['raw_data']
+        #file_raw_parameters = checkpoint['raw_parameters']
         file_raw_parameters = checkpoint['raw_parameters']
+        if len(file_raw_parameters.shape) >= 3:  # j'ai des fichiers de formats bizarre [N_samples, 1, 1] (ou un des deux 1 est d_parameter)
+            file_raw_parameters = file_raw_parameters.squeeze(-1)
+        # todo j'ai sauvegardé tout mes fichiers dans un format bizarre ? savoir pourqoui est le regler. est ce que le squeeze fait casser si les fichiers étaient dans le bon format ?
         metadata = checkpoint['metadata']
         return file_raw_data, file_raw_parameters, metadata
 
@@ -80,8 +85,6 @@ class Backup:
 
         raw_data = torch.cat(all_raw_data, dim=0)
         raw_parameters = torch.cat(all_raw_parameters, dim=0)
-        #print(f"Merged data shape: {raw_data.shape}")
-        #print(f"Merged parameters shape: {raw_parameters.shape}")
         return raw_data, raw_parameters, metadata
     
     
@@ -107,7 +110,7 @@ class Backup:
             raw_data, raw_parameters, met = Backup.load_data(f, model.device)
             if max_points is not None:
                 raw_data = raw_data[:,:max_points]
-                raw_parameters = raw_parameters[:,:max_points]
+                raw_parameters = raw_parameters
             cursor += batchsize
             data = model.normalizer.normalize_data(raw_data)
             parameters = model.normalizer.normalize_parameters(raw_parameters)
@@ -248,6 +251,7 @@ class Backup:
             model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'])
         else:
             model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'], use_imperfections=True, **imperfections_cfg)
+            # todo charger correctement les paramètres d'imperfections car pour l'instant ca ne va pas marcher
 
         model.set_normalizer(save_dict['data_mean'], save_dict['data_std'])
 

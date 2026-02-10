@@ -1,11 +1,9 @@
 executable = run_resume_training.sh
 
 arguments = \
-  --training-id 24 \
+  --training-id 12 \
   --data-dir data_3 \
-  --device cpu \
-  --run-diagnostics \
-  --n-diagnostic-files 5
+  --device cpu
 
 output = logs/out.$(CLUSTER).$(PROCESS)
 error  = logs/err.$(CLUSTER).$(PROCESS)
@@ -14,6 +12,6 @@ log    = logs/log.$(CLUSTER).$(PROCESS)
 request_cpus = 16
 request_memory = 48000
 
-+MaxRuntime = 43200
++MaxRuntime = 10800
 
 queue

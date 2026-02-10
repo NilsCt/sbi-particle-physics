@@ -24,7 +24,7 @@ KEEP_LAST_N_BACKUPS = 2
 # Data / Parameters 
 C9_SM = 4.27 # theorical C_9
 C9 = C9_SM - 0.7 # empirical C_9
-C9_uncertainty = 0.2 # 0.2-0.3
+C9_UNCERTAINTY = 0.2 # 0.2-0.3
 DATA_LABELS = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
 ENCODED_DATA_LABELS = ["$q^2$", "$\\cos \\theta_l$", "$\\cos \\theta_d$", "$\\cos \\phi$", "$\\sin \\phi$"]
 ENCODED_POINT_DIM = 5 # q^2, \cos \theta_l, \cos \theta_d, \cos \phi, \sin \phi
@@ -32,18 +32,18 @@ PARAMETERS_LABEL = ["$C_9$"]
 PARAMETERS_DIM = 1
 
 # EOS
-EOS_KINEMATICS = {
-            's':             2.0,   's_min':             4,       's_max' :            6.0,
-            'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
-            'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
-            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
-}
 #EOS_KINEMATICS = {
-#            's':             2.0,   's_min':             1,       's_max' :            8.0,
+#            's':             2.0,   's_min':             4,       's_max' :            6.0,
 #            'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
 #            'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
 #            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
 #}
+EOS_KINEMATICS = {
+            's':             2.0,   's_min':             1,       's_max' :            8.0,
+            'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
+            'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
+            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
+}
 EOS_OPTIONS = {
             'l': 'mu',
             'q': 'd',
