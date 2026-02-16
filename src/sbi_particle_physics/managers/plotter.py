@@ -4,7 +4,7 @@ from sbi_particle_physics.objects.model import Model
 import numpy as np
 from torch import Tensor
 from sbi.inference import NPE
-from sbi_particle_physics.config import AXIS_FONTSIZE, LEGEND_FONTSIZE, TICK_FONTSIZE, DATA_LABELS, PARAMETERS_LABEL
+from sbi_particle_physics.config import AXIS_FONTSIZE, LEGEND_FONTSIZE, TICK_FONTSIZE, DATA_LABELS, PARAMETERS_LABEL, GREEN_COLOR, PLOTS_DIR
 
 class Plotter:
     """
@@ -13,19 +13,17 @@ class Plotter:
 
     @staticmethod
     def plot_a_sample_1D(sample : Tensor, parameter : Tensor, label : str):
-        fig, ax = plt.subplots(figsize=(7,4))
-        ax.hist(
-            sample,
-            bins=40, 
-            color="blue",
-            alpha=0.7,
-            label=f"$C_9={parameter.item():.3f}$"
-        )
-        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE)
-        ax.tick_params(labelsize=TICK_FONTSIZE)
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=LEGEND_FONTSIZE)
-        plt.tight_layout()
+        fig, ax = plt.subplots(figsize=(5.5,4)) # , constrained_layout=True
+        ax.hist(sample, bins=40, alpha=0.8,label=f"$C_9={parameter.item():.3f}$")
+        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE+14, labelpad=0) # , fontweight='bold'
+        #ax.set_ylabel("events", fontsize=AXIS_FONTSIZE, labelpad=0) # , fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE+5, frameon=True, framealpha=0.55, borderpad=0.4, labelspacing=0.3)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        plt.savefig(PLOTS_DIR / "poster" / "image_q2.svg")
         plt.show()
 
     @staticmethod
@@ -65,22 +63,39 @@ class Plotter:
 
 
     @staticmethod
-    def plot_a_posterior_parameter(sampled_parameters : Tensor, label : str, true_value : float):
-        fig, ax = plt.subplots(figsize=(7,4))
+    def plot_a_posterior_parameter(sampled_parameters : Tensor, label : str, true_value : float, range : tuple[float,float] = (None, None)):
+        fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
         ax.hist(
             sampled_parameters,
             bins=40,
             density=True,
-            alpha=0.6,
-            color="green",
+            alpha=0.8,
+            color=GREEN_COLOR,
             label="posterior"
         )
-        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE)
-        ax.tick_params(labelsize=TICK_FONTSIZE)
-        ax.grid(True, alpha=0.3)
+        if range[0] is not None and range[1] is not None:
+            ax.set_xlim(range[0], range[1])
         ax.axvline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
-        ax.legend(fontsize=LEGEND_FONTSIZE)
-        plt.tight_layout()
+        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE+8, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)  #, fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(
+            fontsize=LEGEND_FONTSIZE,
+            frameon=True,
+            framealpha=0.55,
+            handlelength=1.3,
+            handleheight=0.6,
+            handletextpad=0.4,
+            borderpad=0.3,
+            labelspacing=0.2,
+            loc="upper left"
+        )
+        leg.get_frame().set_linewidth(0.8)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        plt.savefig(PLOTS_DIR / "poster" / "image_posterior.svg")
         plt.show()
 
     @staticmethod
@@ -165,3 +180,29 @@ class Plotter:
 
         plt.tight_layout()
         plt.show()
+
+
+    @staticmethod
+    def poster_plot():
+        plt.rcParams['font.family'] = 'Arial'
+        plt.rcParams['font.weight'] = 'medium'
+        plt.rcParams['axes.prop_cycle'] = plt.cycler(color=["#9e3f00","#1f5d8c", "#2b8c6b","#6a3d9a"])
+        fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
+        ax.plot([0,1], [0,1], linestyle="--", label="Ideal posterior", linewidth=2.2)
+        ax.plot([0,1], [0.5,0.5], linestyle="--", linewidth=2.2)
+        ax.plot([0,1], [1,0], linestyle="--", linewidth=2.2)
+        ax.plot([0,1], [0.2,0.7], linestyle="--", linewidth=2.2)
+        ax.set_xlabel("x axis", fontsize=AXIS_FONTSIZE, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("y axis", fontsize=AXIS_FONTSIZE, labelpad=0) # , fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, borderpad=0.4, labelspacing=0.3)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        plt.show()
+
+    # courbes dominantes: #166d12 ou #145f10
+    # courbes secondaires: #2f6fa3 ou #255a85
+    # troisième courbe : # #6a3d9a ou #5a2d82
+    # quatrième courbe : #6a3d9a

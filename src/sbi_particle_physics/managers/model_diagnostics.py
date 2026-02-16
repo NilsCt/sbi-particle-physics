@@ -1,5 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
+from pyparsing import line
 import torch
 from torch import Tensor
 from sbi_particle_physics.objects.model import Model
@@ -15,7 +16,7 @@ from sbi.diagnostics.misspecification import calc_misspecification_mmd
 from sbi.diagnostics.lc2st import LC2ST
 from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
-from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE
+from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE, PLOTS_DIR, AXIS_FONTSIZE, GREEN_COLOR, RED_COLOR
 from sbi_particle_physics.managers.predictions import Predictions
 from pathlib import Path
 
@@ -123,8 +124,34 @@ class ModelDiagnostics:
             num_posterior_samples,
             plot_type="cdf",
             num_bins=20,
-            figsize=(5, 3),
+            figsize=(5.5, 4),
+            parameter_labels=["Model"]
         )
+        for line in ax.get_lines():
+            line.set_color(RED_COLOR)   # ta couleur choisie
+            line.set_linewidth(3) 
+        for coll in ax.collections:
+            coll.set_facecolor(GREEN_COLOR)   # ta couleur
+            coll.set_alpha(0.4)  
+        ax.set_xlabel("Nominal level", fontsize=AXIS_FONTSIZE-3, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Empirical coverage", fontsize=AXIS_FONTSIZE-2, labelpad=0) # , fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE-2, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(
+            fontsize=LEGEND_FONTSIZE-3,
+            frameon=True,
+            framealpha=0.55,
+            handlelength=1.3,
+            handleheight=0.6,
+            handletextpad=0.4,
+            borderpad=0.3,
+            labelspacing=0.2
+        )
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        plt.tight_layout
+        plt.savefig(PLOTS_DIR / "poster" / "image_calibration.svg")
         if path is None:
             fig.show()
         else:

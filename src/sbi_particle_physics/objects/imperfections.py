@@ -37,7 +37,7 @@ class Imperfections:
         rng: RandomState,
 
         use_acceptance: bool = True, # flags
-        use_resolution: bool = True,
+        use_resolution: bool = False,
         use_background: bool = True,
 
         acceptance_coeffs_path : Path | None = None
@@ -91,7 +91,23 @@ class Imperfections:
         The number of events will probably decrease because of acceptance
         """
         if self.use_acceptance:
+            a = x.shape[0]
+            #print("before applying acceptance")
+            #q2_min = torch.min(x[:,0]).item()
+            #q2_max = torch.max(x[:,0]).item()
+            #print(f"q2 range in input: [{q2_min}, {q2_max}]")
+            #ctl_min = torch.min(x[:,1]).item()
+            #ctl_max = torch.max(x[:,1]).item()
+            #print(f"ctl range in input: [{ctl_min}, {ctl_max}]")
+            #ctk_min = torch.min(x[:,2]).item()
+            #ctk_max = torch.max(x[:,2]).item()
+            #print(f"ctk range in input: [{ctk_min}, {ctk_max}]")
+            #phi_min = torch.min(x[:,3]).item()
+            #phi_max = torch.max(x[:,3]).item()
+            #print(f"phi range in input: [{phi_min}, {phi_max}]")
             x = self._apply_acceptance(x)
+            b = x.shape[0]
+            print(f"after applying acceptance, kept {b} out of {a} events ({b/a:.1%})")
         if self.use_resolution:
             x = self._apply_resolution(x)
         if self.use_background:
@@ -99,26 +115,12 @@ class Imperfections:
         return x
 
     # Acceptance
-    def _rescale(self, x : Tensor | float, xmin : Tensor | float, xmax : Tensor | float): # map to [-1,1]
-        x = self.to_tensor(x)
-        xmin = self.to_tensor(xmin)
-        xmax = self.to_tensor(xmax)
-        new = 2 * (x - xmin) / (xmax - xmin) - 1
-        return torch.clamp(new, -1.0, 1.0)
-    
     @staticmethod
-    def _legendre_all(x: Tensor, nmax: int) -> Tensor:
-        # calculate Legendre polynomials of order 0,1,...,nmax evaluated at x
-        x = x.unsqueeze(-1)
-        P0 = torch.ones_like(x)
-        if nmax == 0: return P0
-        P1 = x
-        Ps = [P0, P1]
-        for n in range(1, nmax): # Recurrence: P_{n+1} = (2n+1) x P_n - n P_{n-1}
-            Pn = Ps[-1]
-            Pnm1 = Ps[-2]
-            Pnp1 = ((2*n + 1) * x * Pn - n * Pnm1) / (n + 1)
-            Ps.append(Pnp1)
+    def _monomial_all(x: Tensor, nmax: int) -> Tensor:
+        x = x.unsqueeze(-1) # calculate mononomials 1,x,x^2,...,x^nmax 
+        Ps = [torch.ones_like(x)]
+        for _ in range(0, nmax):
+            Ps.append(Ps[-1] * x)
         return torch.cat(Ps, dim=-1)
 
     def _load_coefs(self, path: Path):
@@ -148,29 +150,25 @@ class Imperfections:
             raise ValueError(f"Coefficient size mismatch: got {coeffs.size}, expected {expected_size}")
         coeffs = self.to_tensor(coeffs.reshape(Nm, Nq2, Nctl, Nctk, Nphi))
 
-        mkpi_min, mkpi_max = self.acceptance_ranges_dict["mkpi"]
-        x_mkpi = self._rescale(self.mkpi, mkpi_min, mkpi_max)
-        Lmkpi = Imperfections._legendre_all(x_mkpi, self.acceptance_orders["mkpi"]).squeeze(0)
+        x_mkpi = self.to_tensor(self.mkpi)
+        Lmkpi = Imperfections._monomial_all(x_mkpi, self.acceptance_orders["mkpi"]).squeeze(0)
 
         # Contract mkpi dimension: C4[q2, ctl, ctk, phi] = sum_i L_i(mkpi) * C5[i, ...]
         self.acceptance_coeffs = torch.tensordot(Lmkpi, coeffs, dims=([0], [0]))  # -> (Nq2,Nctl,Nctk,Nphi)
 
-    def _smart_legendre_all(self, x : Tensor, code : str) -> Tensor:
-        x_min, x_max = self.acceptance_ranges_dict[code]
-        x = self._rescale(x, x_min, x_max)
-        return Imperfections._legendre_all(x,  self.acceptance_orders[code])
-
     def _apply_acceptance(self, x: Tensor) -> Tensor:
         q2, ctl, ctk, phi = x.T
-        Lq2 = self._smart_legendre_all(q2, "q2")
-        Lctl = self._smart_legendre_all(ctl, "ctl")
-        Lctk = self._smart_legendre_all(ctk, "ctk")
-        Lphi = self._smart_legendre_all(phi, "phi")
+        Lq2 = Imperfections._monomial_all(q2,  self.acceptance_orders["q2"])
+        Lctl = Imperfections._monomial_all(ctl,  self.acceptance_orders["ctl"])
+        Lctk = Imperfections._monomial_all(ctk,  self.acceptance_orders["ctk"])
+        Lphi = Imperfections._monomial_all(phi,  self.acceptance_orders["phi"])
         # eps[b] = sum_{j,k,m,n} C4[j,k,m,n] * Lq2[b,j]*Lctl[b,k]*Lctk[b,m]*Lphi[b,n]
-        eps = torch.einsum("bj,bk,bm,bn,jkmn->b", Lq2, Lctl, Lctk, Lphi, self.acceptance_coeffs)
+        eps = torch.einsum("bj,bk,bm,bn,jkmn->b", Lq2, Lctl, Lctk, Lphi, self.acceptance_coeffs) / 0.05
+        print(f"max eps {torch.max(eps)}, mean eps {torch.mean(eps)}, median eps {torch.median(eps)}, min eps {torch.min(eps)}")
+        print(f"eps < 0: {(eps < 0).sum()/len(eps):.1%}, eps > 1: {(eps > 1).sum()/len(eps):.1%}")
         eps = torch.clamp(eps, 0.0, 1.0)
         u = torch.rand(len(x), device=self.device)
-        return x[u < eps] # Accept-reject
+        return x[u < eps]
 
 
     # Resolution

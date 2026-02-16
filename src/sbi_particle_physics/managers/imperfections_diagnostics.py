@@ -7,6 +7,7 @@ from sbi_particle_physics.config import (
     TICK_FONTSIZE,
     LEGEND_FONTSIZE,
     ENCODED_DATA_LABELS,
+    PLOTS_DIR,
     C9
 )
 from pathlib import Path
@@ -257,4 +258,85 @@ class ImperfectionsDiagnostics:
         axes[0].legend(fontsize=12)
         if q2_bin is not None:
             fig.suptitle(rf"${q2_bin[0]:.1f} < q^2 < {q2_bin[1]:.1f}\ \mathrm{{GeV}}^2$", fontsize=14)
+        plt.show()
+
+    @staticmethod
+    def compare_real_vs_simulated_vs_accepted(x_real: Tensor, x_sim: Tensor, x_acc : Tensor, q2_bin: tuple[float, float] | None = None, bins: int = 30):
+        """
+        Compare real LHCb data to simulated data for fixed C9.
+        Plots distributions of q2, cos(theta_l), cos(theta_K), phi.
+        """
+        x_real = x_real.detach().cpu().numpy()
+        x_sim = x_sim.detach().cpu().numpy()
+        x_acc = x_acc.detach().cpu().numpy()
+        q2_r, ctl_r, ctk_r, phi_r = x_real.T
+        q2_s, ctl_s, ctk_s, phi_s = x_sim.T
+        q2_a, ctl_a, ctk_a, phi_a = x_acc.T
+        if q2_bin is not None:
+            q2_min, q2_max = q2_bin
+            mask_r = (q2_r > q2_min) & (q2_r < q2_max)
+            mask_s = (q2_s > q2_min) & (q2_s < q2_max)
+            mask_a = (q2_a > q2_min) & (q2_a < q2_max)
+            q2_r, ctl_r, ctk_r, phi_r = q2_r[mask_r], ctl_r[mask_r], ctk_r[mask_r], phi_r[mask_r]
+            q2_s, ctl_s, ctk_s, phi_s = q2_s[mask_s], ctl_s[mask_s], ctk_s[mask_s], phi_s[mask_s]
+            q2_a, ctl_a, ctk_a, phi_a = q2_a[mask_a], ctl_a[mask_a], ctk_a[mask_a], phi_a[mask_a]
+        fig, axes = plt.subplots(1, 4, figsize=(18, 4), constrained_layout=True)
+        axes[0].hist(q2_r, bins=bins, histtype="step", density=True, lw=2, label="LHCb data")
+        axes[0].hist(q2_s, bins=bins, histtype="step", density=True, lw=2, label="No acceptance")
+        axes[0].hist(q2_a, bins=bins, histtype="step", density=True, lw=2, label="With acceptance")
+        axes[0].set_xlabel(r"$q^2\ [\mathrm{GeV}^2]$")
+        axes[0].set_ylabel("Density")
+        axes[1].hist(ctl_r, bins=bins, range=(-1, 1), histtype="step", density=True, lw=2, label="LHCb data")
+        axes[1].hist(ctl_s, bins=bins, range=(-1, 1), histtype="step", density=True, lw=2, label="No acceptance")
+        axes[1].hist(ctl_a, bins=bins, range=(-1, 1), histtype="step", density=True, lw=2, label="With acceptance")
+        axes[1].set_xlabel(r"$\cos\theta_\ell$")
+        axes[2].hist(ctk_r, bins=bins, range=(-1, 1), histtype="step", density=True, lw=2, label="LHCb data")
+        axes[2].hist(ctk_s, bins=bins, range=(-1, 1), histtype="step", density=True, lw=2, label="No acceptance")
+        axes[2].hist(ctk_a, bins=bins, range=(-1, 1), histtype="step", density=True, lw=2, label="With acceptance")
+        axes[2].set_xlabel(r"$\cos\theta_K$")
+        axes[3].hist(phi_r, bins=bins, range=(-np.pi, np.pi), histtype="step", density=True, lw=2, label="LHCb data")
+        axes[3].hist(phi_s, bins=bins, range=(-np.pi, np.pi), histtype="step", density=True, lw=2, label="No acceptance")
+        axes[3].hist(phi_a, bins=bins, range=(-np.pi, np.pi), histtype="step", density=True, lw=2, label="With acceptance")
+        axes[3].set_xlabel(r"$\phi$")
+        for ax in axes:
+            ax.grid(alpha=0.3)
+        axes[0].legend(fontsize=12)
+        if q2_bin is not None:
+            fig.suptitle(rf"${q2_bin[0]:.1f} < q^2 < {q2_bin[1]:.1f}\ \mathrm{{GeV}}^2$", fontsize=14)
+        plt.show()
+
+    
+    @staticmethod
+    def compare_simulated_vs_accepted_poster(x_sim: Tensor, x_acc : Tensor, q2_bin: tuple[float, float] | None = None, bins: int = 30):
+        x_sim = x_sim.detach().cpu().numpy()
+        x_acc = x_acc.detach().cpu().numpy()
+        q2_s, ctl_s, ctk_s, phi_s = x_sim.T
+        q2_a, ctl_a, ctk_a, phi_a = x_acc.T
+        if q2_bin is not None:
+            q2_min, q2_max = q2_bin
+            mask_s = (q2_s > q2_min) & (q2_s < q2_max)
+            mask_a = (q2_a > q2_min) & (q2_a < q2_max)
+            q2_s, ctl_s, ctk_s, phi_s = q2_s[mask_s], ctl_s[mask_s], ctk_s[mask_s], phi_s[mask_s]
+            q2_a, ctl_a, ctk_a, phi_a = q2_a[mask_a], ctl_a[mask_a], ctk_a[mask_a], phi_a[mask_a]
+        fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
+        ax.hist(ctk_s, bins=bins, range=(-1, 1), alpha=0.5, density=True, lw=2, label="No acceptance")
+        ax.hist(ctk_a, bins=bins, range=(-1, 1), alpha=0.5, density=True, lw=2, label="With acceptance")
+        ax.set_xlabel(r"$\cos\theta_K$", fontsize=AXIS_FONTSIZE+10, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0) # , fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(
+            fontsize=LEGEND_FONTSIZE-1,
+            frameon=True,
+            framealpha=0.55,
+            handlelength=1.3,
+            handleheight=0.6,
+            handletextpad=0.4,
+            borderpad=0.3,
+            labelspacing=0.2
+        )
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        plt.savefig(PLOTS_DIR / "poster" / "image_detector.svg")
         plt.show()

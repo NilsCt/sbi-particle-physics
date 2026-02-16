@@ -1,7 +1,7 @@
 executable = run_resume_training.sh
 
 arguments = \
-  --training-id 12 \
+  --training-id 29 \
   --data-dir data_3 \
   --device cpu
 

@@ -62,6 +62,7 @@ def main():
 
 # trained nn
 # * : need resume training
+# 18 n points 800
 # 19 n points 500
 # 20 n points 300
 # 21 n points 150
@@ -73,7 +74,6 @@ def main():
 # ** 15 n points 4000
 # * 16 n points 2000
 # * 17 n points 1000
-# * 18 n points 800
 # * 29 SiLU NSF
 # * 23 n files 350
 # * 24 n files 300 

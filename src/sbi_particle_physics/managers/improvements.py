@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
+from matplotlib.ticker import LogLocator
 import torch
 from torch import Tensor
 from sbi_particle_physics.objects.model import Model
 from sbi_particle_physics.managers.plotter import Plotter
 import numpy as np
 from pathlib import Path
-from sbi_particle_physics.config import AXIS_FONTSIZE, TICK_FONTSIZE, LEGEND_FONTSIZE
+from sbi_particle_physics.config import AXIS_FONTSIZE, TICK_FONTSIZE, LEGEND_FONTSIZE, PLOTS_DIR, RED_COLOR, GREEN_COLOR
 from sbi_particle_physics.managers.backup import Backup
 from sbi_particle_physics.managers.predictions import Predictions
 
@@ -49,15 +50,18 @@ class Improvements:
         order = np.argsort(x_values)
         x_values = x_values[order]
         width = width[order]
-        fig, ax = plt.subplots(figsize=(7, 4))
-        ax.plot(x_values, width, marker="o", linestyle="-", label=curve_label)
-        ax.set_xlabel(x_label, fontsize=AXIS_FONTSIZE)
-        ax.set_ylabel(r"$\langle \sigma \rangle$", fontsize=AXIS_FONTSIZE - 4)
+        fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
+        ax.plot(x_values, width, marker="o", linestyle="-", label=curve_label, linewidth=2.2, color=RED_COLOR)
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.tick_params(labelsize=TICK_FONTSIZE)
-        ax.grid(True, which="both", alpha=0.3)
-        fig.tight_layout()
+        ax.set_xlabel(x_label, fontsize=AXIS_FONTSIZE+11, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel(r"Uncertainty", fontsize=AXIS_FONTSIZE-2, labelpad=0) # , fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, borderpad=0.4, labelspacing=0.3)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        ax.yaxis.set_major_locator(LogLocator(base=10.0, subs=(1.0, 2.0, 5.0)))
         return fig, ax, x_values, width
     
     @staticmethod
@@ -118,11 +122,13 @@ class Improvements:
             avg_width = Predictions.average_uncertainty(posterior_samples)
             n_points_list.append(n_points)
             avg_widths.append(avg_width)
-        fig, ax, n_points_arr, avg_widths_arr = Improvements._plot_width_by(n_points_list, avg_widths, r"$n_{\mathrm{points}}$", "Neural network")
+        fig, ax, n_points_arr, avg_widths_arr = Improvements._plot_width_by(n_points_list, avg_widths, r"$n_{\mathrm{points}}$", "Neural networks")
         N_ref = n_points_arr[0]
         width_ref = avg_widths_arr[0]
         trend_1_over_sqrtN = width_ref * np.sqrt(N_ref / n_points_arr)
-        ax.plot(n_points_arr, trend_1_over_sqrtN, linestyle="--", color="black", label=r"$\propto 1/\sqrt{n_{\mathrm{points}}}$")
+        ax.plot(n_points_arr, trend_1_over_sqrtN, linestyle="--", color=GREEN_COLOR, label=r"$\propto 1/\sqrt{n_{\mathrm{points}}}$", linewidth=2.2)
+        plt.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, borderpad=0.4, labelspacing=0.3)
+        plt.savefig(PLOTS_DIR / "poster" / "image_npoints.svg")
         fig.show()
         fig, ax = Improvements._plot_width_by_quantify(n_points_list, avg_widths, r"$1/n_{\mathrm{points}}$", "Neural network")
         fig.show()
@@ -476,3 +482,47 @@ class Improvements:
         plt.show()
 
     # todo ajouter courbe de référence 1/sqrt(N)
+
+
+    @staticmethod
+    def plot_drift_by_noise_poster(model_dirs: list[Path], device: torch.device, raw_observed_data: Tensor, noise_levels: list[float], labels: list[str], n_posterior_samples: int = 1000):
+        if raw_observed_data.ndim == 2:
+            x_o = raw_observed_data.unsqueeze(0)
+        else:
+            x_o = raw_observed_data
+        fig, ax_drift = plt.subplots(figsize=(5.5,4), constrained_layout=True)
+        i = 0
+        for model_dir in model_dirs:
+            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model_name = model_dir.name
+            x_base = model.normalizer.normalize_data(x_o) # this time, noise is added after normalization
+            posterior_ref = model.draw_parameters_from_predicted_posterior(x_base, n_parameters=n_posterior_samples)
+            mean_ref, _ = Predictions.calculate_estimator(posterior_ref)
+            drifts = []
+            widths = []
+            for delta in noise_levels:
+                if delta == 0.0:
+                    drifts.append(0.0)
+                    widths.append(Predictions.average_uncertainty(posterior_ref))
+                    continue
+                noise = delta * torch.randn_like(x_base)
+                x_noisy = x_base + noise
+                posterior = model.draw_parameters_from_predicted_posterior(x_noisy, n_parameters=n_posterior_samples)
+                avg_width = Predictions.average_uncertainty(posterior)
+                widths.append(avg_width)
+                mean_delta, _ = Predictions.calculate_estimator(posterior)
+                drift = torch.norm(mean_delta - mean_ref, dim=-1).mean().item()
+                drifts.append(drift)
+            ax_drift.plot(noise_levels, drifts, marker="o", linewidth=2.2, label=labels[i])
+            i += 1
+
+        ax_drift.set_xlabel(r"Noise amplitude", fontsize=AXIS_FONTSIZE-2, labelpad=0) # , fontweight='bold'
+        ax_drift.set_ylabel(r"Estimator shift", fontsize=AXIS_FONTSIZE-2, labelpad=0) # , fontweight='bold'
+        ax_drift.tick_params(labelsize=TICK_FONTSIZE+4, width=1.2)
+        ax_drift.locator_params(nbins=4)
+        ax_drift.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax_drift.legend(fontsize=LEGEND_FONTSIZE+2, frameon=True, framealpha=0.55, borderpad=0.4, labelspacing=0.3)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        plt.savefig(PLOTS_DIR / "poster" / "image_robustness.svg")
+        plt.show()

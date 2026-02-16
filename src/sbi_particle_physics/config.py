@@ -39,7 +39,7 @@ PARAMETERS_DIM = 1
 #            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
 #}
 EOS_KINEMATICS = {
-            's':             2.0,   's_min':             1,       's_max' :            8.0,
+            's':             2.0,   's_min':             1.1,       's_max' :            6,
             'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
             'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
             'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
@@ -52,7 +52,8 @@ EOS_OPTIONS = {
             'logging': 'quiet',
             'log-level': 'off',
 }
-EOS_DECAY = 'B->K^*ll::d^4Gamma@LowRecoil'
+#EOS_DECAY = 'B->K^*ll::d^4Gamma@LargeRecoil'
+EOS_DECAY = 'B->K^*ll::d^4Gamma@LowRecoil' # normal
 EOS_PARAMETER = "b->smumu::Re{c9}"
 
 # Simulator
@@ -88,15 +89,30 @@ DEFAULT_STOP_AFTER_EPOCH = 400
 DEFAULT_MAX_EPOCHS = 2000
 
 # Plots
-AXIS_FONTSIZE = 21
-LEGEND_FONTSIZE = 15
-TICK_FONTSIZE = 15 
+#AXIS_FONTSIZE = 26 # 1.2 tick size
+#LEGEND_FONTSIZE = 20 # tick size
+#TICK_FONTSIZE = 20 
+
+AXIS_FONTSIZE = 25 # 1.2 tick size
+LEGEND_FONTSIZE = 20 # tick size 
+#AXIS_FONTSIZE = 30 # 1.2 tick size
+#LEGEND_FONTSIZE = 24 # tick size
+TICK_FONTSIZE = 22
+
+GREEN_COLOR = "#166d12"
+RED_COLOR = "#b22222"
+PLOT_COLORS = [
+    GREEN_COLOR,  # vert principal
+    RED_COLOR,   # rouge sombre (si besoin accent)
+    "#255a85",  # bleu profond
+    "#5a2d82",  # violet
+]
 
 # Imperfections
-IMPERFECTIONS_OVERSAMPLE_FACTOR = 3
-IMPERFECTIONS_MAX_TRIES = 10
+IMPERFECTIONS_OVERSAMPLE_FACTOR = 6 # ideal: 
+IMPERFECTIONS_MAX_TRIES = 20
 
-MKPI = 0.892
+MKPI = 0.892 # GeV
 ACCEPTANCE_COEFFS_PATH = IMPERFECTIONS / "2017_nominal_B0_highq2.dat"
 
 RESOLUTION_Q2_SIGMA_CORE = 0.05 # GeV^2
