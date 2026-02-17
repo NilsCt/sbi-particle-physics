@@ -14,9 +14,9 @@ class Plotter:
     @staticmethod
     def plot_a_sample_1D(sample : Tensor, parameter : Tensor, label : str):
         fig, ax = plt.subplots(figsize=(5.5,4)) # , constrained_layout=True
-        ax.hist(sample, bins=40, alpha=0.8,label=f"$C_9={parameter.item():.3f}$")
+        ax.hist(sample, bins=40, alpha=0.8,label=f"$C_9={parameter.item():.3f}$", density=True)
         ax.set_xlabel(label, fontsize=AXIS_FONTSIZE+14, labelpad=0) # , fontweight='bold'
-        #ax.set_ylabel("events", fontsize=AXIS_FONTSIZE, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0) # , fontweight='bold'
         ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
         ax.locator_params(nbins=4)
         ax.grid(True, alpha=0.4, linewidth=0.8)

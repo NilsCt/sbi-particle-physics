@@ -3,7 +3,7 @@ executable = run_training.sh
 arguments = \
   --training-id 30 \
   --data-dir data_3 \
-  --max-files 1000 \
+  --max-files 100 \
   --device cpu
 # normalement max files est 400
 
@@ -11,11 +11,11 @@ output = logs/out.$(CLUSTER).$(PROCESS)
 error  = logs/err.$(CLUSTER).$(PROCESS)
 log    = logs/log.$(CLUSTER).$(PROCESS)
 
-request_cpus   = 32 
+request_cpus   = 16 
 # 32
-request_memory = 96000 
+request_memory = 36000 
 # 64000
 
-+MaxRuntime = 21600   
++MaxRuntime = 10800   
 
 queue

@@ -1,7 +1,7 @@
 executable = run_resume_training.sh
 
 arguments = \
-  --training-id 29 \
+  --training-id 27 \
   --data-dir data_3 \
   --device cpu
 
@@ -10,7 +10,7 @@ error  = logs/err.$(CLUSTER).$(PROCESS)
 log    = logs/log.$(CLUSTER).$(PROCESS)
 
 request_cpus = 16
-request_memory = 48000
+request_memory = 36000
 
 +MaxRuntime = 10800
 
