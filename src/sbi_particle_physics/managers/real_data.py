@@ -46,8 +46,10 @@ class RealData:
         """
         file = uproot.open(file)
         tree = file[TREE_NAME]
+        #print(f"tree branches: {tree.keys()}")
         raw_data = tree.arrays(BRANCHES, library="ak")
         raw_X = np.stack([ak.to_numpy(raw_data[b]) for b in BRANCHES], axis=1)
+        raw_X[:, -1] = raw_X[:, -1] / 1000.0 # convert mB from MeV to GeV
         return torch.tensor(raw_X, dtype=torch.float32, device=device)
     
     @staticmethod
@@ -91,6 +93,7 @@ class RealData:
             
             raw = tree.arrays(BRANCHES, library="ak", entry_start=entry_start, entry_stop=entry_stop)
             X = np.stack([ak.to_numpy(raw[b]) for b in BRANCHES], axis=1)
+            X[:, -1] = X[:, -1] / 1000.0 # convert mB from MeV to GeV
             X = torch.tensor(X, dtype=torch.float32, device=device)
             chunks.append(X)
             collected += X.shape[0]

@@ -4,9 +4,10 @@ executable = run_data_generation.sh
 
 arguments = \
   $(Process) \
-  --directory data_3 \
-  --n-samples 50 \
-  --n-points 10000
+  --directory data_4 \
+  --n-samples 10 \
+  --n-points 10000 \
+  --use-imperfections True
 
 # PAS OUBLIER DE MODIFIER START_INDEX ET AMOOUNT_PER_WORKER DANS .SH
 
@@ -18,4 +19,4 @@ request_cpus = 1
 request_memory = 1000
 +MaxRuntime = 36000
 
-queue 50
+queue 100

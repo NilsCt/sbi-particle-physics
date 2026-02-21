@@ -36,6 +36,7 @@ def main():
     prior_high_raw = model.to_tensor([args.prior_high])
 
     model.set_prior(prior_low_raw, prior_high_raw)
+    print("Use imperfections:", args.use_imperfections)
     model.set_simulator(stride=args.stride, pre_N=args.pre_N, preruns=args.preruns, use_imperfections=args.use_imperfections)
     directory = DATA_DIR / args.directory
     print(f"Generating data in {directory}, "f"start={args.start_index}, amount={args.amount}")

@@ -27,7 +27,10 @@ class Normalizer:
     @staticmethod
     def calculate_stats(raw_data : Tensor) -> tuple[Tensor, Tensor]:
         formated_data = Normalizer._format_phi(raw_data)
-        return formated_data.mean(dim=(0,1)), formated_data.std(dim=(0,1))
+        if len(formated_data.shape) == 2:
+            return formated_data.mean(dim=0), formated_data.std(dim=0, unbiased=False)
+        else:
+            return formated_data.mean(dim=(0,1)), formated_data.std(dim=(0,1), unbiased=False)
     
     @staticmethod
     def create_normalizer(device : torch.device, raw_data : Tensor) -> Self:
@@ -38,17 +41,19 @@ class Normalizer:
     def _format_phi(raw_x : Tensor) -> Tensor:
         features = raw_x[..., 0:3]
         phi = raw_x[..., 3:4]
+        rest_features = raw_x[..., 4:]
         cos_phi = torch.cos(phi)
         sin_phi = torch.sin(phi)
-        return torch.cat([features, cos_phi, sin_phi], dim=-1)
+        return torch.cat([features, cos_phi, sin_phi, rest_features], dim=-1)
 
     @staticmethod
     def _unformat_phi(x_with_encoded_phi : Tensor) -> Tensor:
         features = x_with_encoded_phi[..., 0:3]
         cos_phi = x_with_encoded_phi[..., 3:4]
         sin_phi = x_with_encoded_phi[..., 4:5]
+        rest_features = x_with_encoded_phi[..., 5:]
         phi = torch.atan2(sin_phi, cos_phi) # knows how to recognize angles in parts I II III IV
-        return torch.cat([features, phi], dim=-1)
+        return torch.cat([features, phi, rest_features], dim=-1)
 
     def normalize_data(self, raw_x : Tensor) -> Tensor:
         formated_x = Normalizer._format_phi(raw_x)

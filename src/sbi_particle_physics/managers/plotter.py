@@ -4,7 +4,7 @@ from sbi_particle_physics.objects.model import Model
 import numpy as np
 from torch import Tensor
 from sbi.inference import NPE
-from sbi_particle_physics.config import AXIS_FONTSIZE, LEGEND_FONTSIZE, TICK_FONTSIZE, DATA_LABELS, PARAMETERS_LABEL, GREEN_COLOR, PLOTS_DIR
+from sbi_particle_physics.config import AXIS_FONTSIZE, ENCODED_DATA_LABELS, LEGEND_FONTSIZE, TICK_FONTSIZE, DATA_LABELS, PARAMETERS_LABEL, GREEN_COLOR, PLOTS_DIR
 
 class Plotter:
     """
@@ -27,8 +27,9 @@ class Plotter:
         plt.show()
 
     @staticmethod
-    def plot_a_sample(sample : Tensor, parameter : Tensor):
-        for i,label in enumerate(DATA_LABELS):
+    def plot_a_sample(sample : Tensor, parameter : Tensor, raw: bool = True):
+        lab = DATA_LABELS if raw else ENCODED_DATA_LABELS
+        for i,label in enumerate(lab):
             Plotter.plot_a_sample_1D(sample[:,i], parameter, label)
 
 

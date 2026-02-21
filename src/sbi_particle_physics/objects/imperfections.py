@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib.pylab import RandomState
 from pathlib import Path
 from sbi_particle_physics.config import (
+    ACCEPTANCE_COEFFS_PATH,
     MKPI,
     BACKGROUND_CTL_P1, 
     BACKGROUND_CTL_P2, 
@@ -37,10 +38,10 @@ class Imperfections:
         rng: RandomState,
 
         use_acceptance: bool = True, # flags
-        use_resolution: bool = False,
+        use_resolution: bool = True,
         use_background: bool = True,
 
-        acceptance_coeffs_path : Path | None = None
+        acceptance_coeffs_path : Path = ACCEPTANCE_COEFFS_PATH
     ):
         
         self.device : torch.device = device
@@ -59,7 +60,7 @@ class Imperfections:
         self.acceptance_orders : dict | None = None 
         self.acceptance_ranges_dict : dict | None = None 
         self.acceptance_coeffs : Tensor | None = None
-        if acceptance_coeffs_path is not None: self._load_coefs(acceptance_coeffs_path)
+        if self.use_acceptance: self._load_coefs(acceptance_coeffs_path)
 
         # Resolution
         self.resolution_q2_sigma_core : float = RESOLUTION_Q2_SIGMA_CORE
@@ -124,6 +125,7 @@ class Imperfections:
         return torch.cat(Ps, dim=-1)
 
     def _load_coefs(self, path: Path):
+        print(f"Loading acceptance coefficients from {path}")
         self.acceptance_coeffs_path = path
         with open(path, "r") as f:
             header = f.readline().removeprefix("#").strip()
@@ -157,13 +159,13 @@ class Imperfections:
         self.acceptance_coeffs = torch.tensordot(Lmkpi, coeffs, dims=([0], [0]))  # -> (Nq2,Nctl,Nctk,Nphi)
 
     def _apply_acceptance(self, x: Tensor) -> Tensor:
-        q2, ctl, ctk, phi = x.T
+        q2, ctl, ctk, phi, _ = x.T
         Lq2 = Imperfections._monomial_all(q2,  self.acceptance_orders["q2"])
         Lctl = Imperfections._monomial_all(ctl,  self.acceptance_orders["ctl"])
         Lctk = Imperfections._monomial_all(ctk,  self.acceptance_orders["ctk"])
         Lphi = Imperfections._monomial_all(phi,  self.acceptance_orders["phi"])
         # eps[b] = sum_{j,k,m,n} C4[j,k,m,n] * Lq2[b,j]*Lctl[b,k]*Lctk[b,m]*Lphi[b,n]
-        eps = torch.einsum("bj,bk,bm,bn,jkmn->b", Lq2, Lctl, Lctk, Lphi, self.acceptance_coeffs) / 0.05
+        eps = torch.einsum("bj,bk,bm,bn,jkmn->b", Lq2, Lctl, Lctk, Lphi, self.acceptance_coeffs) / 0.025 # / 0.05
         print(f"max eps {torch.max(eps)}, mean eps {torch.mean(eps)}, median eps {torch.median(eps)}, min eps {torch.min(eps)}")
         print(f"eps < 0: {(eps < 0).sum()/len(eps):.1%}, eps > 1: {(eps > 1).sum()/len(eps):.1%}")
         eps = torch.clamp(eps, 0.0, 1.0)
@@ -173,7 +175,7 @@ class Imperfections:
 
     # Resolution
     def _apply_resolution(self, x: Tensor) -> Tensor:
-        q2, ctl, ctk, phi = x.T
+        q2, ctl, ctk, phi, mB = x.T
         n = q2.shape[0]
         is_tail = torch.rand(n, device=self.device) < self.resolution_q2_tail_fraction
 
@@ -185,7 +187,7 @@ class Imperfections:
         ctl = torch.clamp(ctl + self.resolution_cos_theta_sigma * torch.randn_like(ctl), -1.0, 1.0)
         ctk = torch.clamp(ctk + self.resolution_cos_theta_sigma * torch.randn_like(ctk), -1.0, 1.0)
         phi = torch.clamp(phi + self.resolution_phi_sigma * torch.randn_like(phi), -torch.pi, torch.pi)
-        return torch.stack([q2, ctl, ctk, phi], dim=1)
+        return torch.stack([q2, ctl, ctk, phi, mB], dim=1)
     
 
     # Background
@@ -221,21 +223,20 @@ class Imperfections:
         ed = torch.exp(self.to_tensor(tau * delta))
         return xmin + (1.0 / tau) * torch.log(1.0 + u * (ed - 1.0))
 
-    def _sample_background_events(self, n: int) -> tuple[Tensor, Tensor]:
+    def _sample_background_events(self, n: int) -> Tensor:
         # Generates n background events
         q2 = self.q2_min + (self.q2_max - self.q2_min) * torch.rand(n, device=self.device) # q^2 is uniform in [q2_min, q2_max]
         ctl = self._sample_cheb2(n, self.background_ctl_p1, self.background_ctl_p2)
         ctk = self._sample_cheb2(n, self.background_ctk_p1, self.background_ctk_p2)
         phi = self._sample_cheb2(n, self.background_phi_p1, self.background_phi_p2) * torch.pi # Chebyshev gives phi in [-1,1] instead of [-pi, pi]
         mB = self._sample_trunc_exp(n, self.background_tau_bkg_mb, self.background_mb_min, self.background_mb_max)
-        x_bkg = torch.stack([q2, ctl, ctk, phi], dim=1)
-        return x_bkg, mB
+        x_bkg = torch.stack([q2, ctl, ctk, phi, mB], dim=1)
+        return x_bkg
 
     def _apply_background(self, x: Tensor) -> Tensor:
         n_sig = len(x)
         n_bkg = int(n_sig * (1.0/self.background_fsig_mb_window - 1)) + 1 # crash if 0
-        x_bkg, _ = self._sample_background_events(n=n_bkg)
+        x_bkg = self._sample_background_events(n=n_bkg)
         x_all = torch.cat([x, x_bkg], dim=0) # doesn't replace real events but add new background events (to optimize time)
         perm = torch.randperm(len(x_all), device=self.device)
-        x_all = x_all[perm]
-        return x_all
+        return x_all[perm]

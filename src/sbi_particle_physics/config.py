@@ -25,9 +25,9 @@ KEEP_LAST_N_BACKUPS = 2
 C9_SM = 4.27 # theorical C_9
 C9 = C9_SM - 0.7 # empirical C_9
 C9_UNCERTAINTY = 0.2 # 0.2-0.3
-DATA_LABELS = ["$q^2$", r"$\cos \theta_l$", r"$\cos \theta_d$", r"$\phi$"]
-ENCODED_DATA_LABELS = ["$q^2$", "$\\cos \\theta_l$", "$\\cos \\theta_d$", "$\\cos \\phi$", "$\\sin \\phi$"]
-ENCODED_POINT_DIM = 5 # q^2, \cos \theta_l, \cos \theta_d, \cos \phi, \sin \phi
+DATA_LABELS = ["$q^2$", r"$\cos \theta_\ell$", r"$\cos \theta_K$", r"$\phi$", r"$m_B$"]
+ENCODED_DATA_LABELS = ["$q^2$", "$\\cos \\theta_\\ell$", "$\\cos \\theta_K$", "$\\cos \\phi$", "$\\sin \\phi$", "$m_B$"]
+ENCODED_POINT_DIM = 6 # q^2, \cos \theta_l, \cos \theta_d, \cos \phi, \sin \phi, m_B
 PARAMETERS_LABEL = ["$C_9$"]
 PARAMETERS_DIM = 1
 
@@ -53,7 +53,7 @@ EOS_OPTIONS = {
             'log-level': 'off',
 }
 #EOS_DECAY = 'B->K^*ll::d^4Gamma@LargeRecoil'
-EOS_DECAY = 'B->K^*ll::d^4Gamma@LowRecoil' # normal
+EOS_DECAY = 'B->K^*ll::d^4Gamma@LargeRecoil' # normal
 EOS_PARAMETER = "b->smumu::Re{c9}"
 
 # Simulator
@@ -62,6 +62,7 @@ DEFAULT_PRIOR_HIGH = [5]
 DEFAULT_STRIDE = 100
 DEFAULT_PRE_N = 1000
 DEFAULT_PRERUNS = 10
+MB_SIG_MEAN, MB_SIG_SIGMA = 5.279, 0.015 # GeV
 
 # Data
 DEFAULT_SAMPLES_PER_FILE = 50
@@ -133,8 +134,7 @@ BACKGROUND_PHI_P2 = 0.06741043820550917
 BACKGROUND_TAU_BKG_MB = -5.745 # background mB exponential slope en GeV^-1
 BACKGROUND_FSIG_MB_WINDOW = 0.770766 # signal fraction in mB window
 BACKGROUND_MB_MIN, BACKGROUND_MB_MAX = 5.170, 5.700 # GeV
-BACKGROUND_MB_SIG_MEAN, BACKGROUND_MB_SIG_SIGMA = 5.279, 0.015 # GeV
 
 # Real data
 TREE_NAME = "DecayTree"
-BRANCHES = ["q2", "ctl", "ctk", "phi"]
+BRANCHES = ["q2", "ctl", "ctk", "phi", "mB"]
