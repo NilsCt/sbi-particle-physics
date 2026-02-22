@@ -114,7 +114,30 @@ class Backup:
             cursor += batchsize
             data = model.normalizer.normalize_data(raw_data)
             parameters = model.normalizer.normalize_parameters(raw_parameters)
-            model.append_data(data, parameters, f)
+            model.append_data(data, parameters, f) 
+
+    @staticmethod
+    def load_and_append_data_proposals(model : Model, files : list[dict], batchsize : int, max_points : int = None):
+        cursor = 0
+        while cursor < len(files):
+            f_with_info = [files[cursor]]
+            proposal_round = files[cursor].get("proposal_round", 0)
+            cursor += 1
+            for e in files[cursor: cursor+batchsize-1]:
+                if e.get("proposal_round", 0) == proposal_round:
+                    f_with_info.append(e)
+                    cursor += 1
+                else:
+                    break
+            f = [f["path"] for f in f_with_info]
+            raw_data, raw_parameters, met = Backup.load_data(f, model.device)
+            if max_points is not None:
+                raw_data = raw_data[:,:max_points]
+                raw_parameters = raw_parameters
+            cursor += batchsize
+            data = model.normalizer.normalize_data(raw_data)
+            parameters = model.normalizer.normalize_parameters(raw_parameters)
+            model.append_data(data, parameters, f, proposal_round=proposal_round) 
 
     @staticmethod
     def load_data_and_build_model(directory : Path, device : torch.device, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None, max_points : int = None) -> Model:
@@ -229,7 +252,10 @@ class Backup:
             # si version finale, il est plus courant de ne pas stocke l'optimizer (qui prend autant de place que le réseau)
             # qui n'est plus utilisé et qui peut poser des problèmes lors du loading
 
-            'data_files_paths': [str(x) for x in model.data_files_paths] # data
+            'data_files_paths': model.export_paths(), # data
+
+            'round': model.round, # SNPE
+            'proposals_ignoring_prior': model.proposals[1:]
         }
         file.parent.mkdir(parents=True, exist_ok=True)
         torch.save(save_dict, file)
@@ -245,6 +271,10 @@ class Backup:
 
         model.prior_type = save_dict['prior_type']
         model.set_prior(save_dict['prior_low'], save_dict['prior_high'])
+        model.round = save_dict.get('round', 0)
+        proposals = save_dict.get('proposals_ignoring_prior', None)
+        if proposals is not None:
+            for e in proposals: model.proposals.append(e)
 
         imperfections_cfg = save_dict.get("imperfections", None)
         if imperfections_cfg is None:
@@ -255,7 +285,15 @@ class Backup:
 
         model.set_normalizer(save_dict['data_mean'], save_dict['data_std'])
 
-        model.data_files_paths = [Path(x) for x in save_dict['data_files_paths']]
+        data_files = save_dict["data_files_paths"]
+        # Case 1 : list of str (for the path)
+        if isinstance(data_files, list) and all(isinstance(x, str) for x in data_files):
+            model.data_files_paths = [Model.create_data_dict(Path(x)) for x in data_files]
+        # Cas 2 : list of dict {"path": str, "proposal_round": int}
+        elif isinstance(data_files, list) and all(isinstance(x, dict) for x in data_files):
+            model.data_files_paths = [Model.create_data_dict(Path(x["path"]), proposal_round=x.get("proposal_round", 0)) for x in data_files]
+        else:
+            raise ValueError("Unsupported format for data_files_paths")
 
         model.training_loss = save_dict['training_loss']
         model.validation_loss = save_dict['validation_loss']
@@ -294,7 +332,7 @@ class Backup:
         )
 
         if load_back_data:
-            Backup.load_and_append_data(model, model.data_files_paths, batchsize=batchsize, max_points=model.n_points)
+            Backup.load_and_append_data_proposals(model, model.data_files_paths, batchsize=batchsize, max_points=model.n_points)
         elif first_file is not None:
             Backup.load_and_append_data(model, [first_file], batchsize=batchsize, max_points=model.n_points)
         model.neural_network.train(max_num_epochs=1) # otherwise _neural_net is not initialized and the weights can't be loaded

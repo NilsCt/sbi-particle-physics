@@ -1,0 +1,18 @@
+executable = run_data_generation_snpe.sh
+
+arguments = \
+  $(Process) \
+  --model-dir training_11 \
+  --data-dir data_4 \
+  --n-samples 3 \
+  --n-points 5
+
+output = logs/out.$(CLUSTER).$(PROCESS)
+error  = logs/err.$(CLUSTER).$(PROCESS)
+log    = logs/log.$(CLUSTER).$(PROCESS)
+
+request_cpus = 1
+request_memory = 1000
++MaxRuntime = 1000
+
+queue 2

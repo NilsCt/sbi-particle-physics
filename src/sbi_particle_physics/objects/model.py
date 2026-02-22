@@ -44,7 +44,7 @@ class Model:
         self.best_val_epoch : int = None
         self.best_val_file : Path = None
         self.epoch : int = 0
-        self.data_files_paths : list[Path] = [] # list and not set to keep order (deterministic loading if needed)
+        self.data_files_paths : list[dict] = [] # list and not set to keep order (deterministic loading if needed)
         self.n_points : int = n_points
 
         self.trial_num_layers : int = None
@@ -63,12 +63,16 @@ class Model:
         self.z_score_x = "none"
         self.prior_type = "uniform"
 
+        self.round : int = 0 # SNPE
+        self.proposals : list = None
+
     def to_tensor(self, x, dtype=torch.float32) -> Tensor:
         return torch.as_tensor(x, dtype=dtype, device=self.device)
     
     def set_prior(self, raw_low : Tensor, raw_high : Tensor):
         # low and high are raw since the normalization has not been done yet when this function is called
         self.prior = BoxUniform(low=raw_low, high=raw_high, device=self.device)
+        self.proposals = [self.prior] 
 
     def set_prior_basic(self, raw_low : list[float] | np.ndarray, raw_high : list[float] | np.ndarray):
         low = self.to_tensor(raw_low)
@@ -167,18 +171,20 @@ class Model:
             weight_decay=DEFAULT_WEIGHT_DECAY
         )
 
-    def draw_raw_parameters_from_prior(self, n_parameters : int) -> Tensor:
-        return self.prior.sample((n_parameters,))
+    def draw_raw_parameters(self, n_parameters : int, from_prior : bool = False) -> Tensor:
+        if from_prior:
+            return self.prior.sample((n_parameters,))
+        return self.proposals[-1].sample((n_parameters,))
     
-    def draw_parameters_from_prior(self, n_parameters : int) -> Tensor:
-        return self.normalizer.normalize_parameters(self.draw_raw_parameters_from_prior(n_parameters))
+    def draw_parameters(self, n_parameters : int, from_prior : bool = False) -> Tensor:
+        return self.normalizer.normalize_parameters(self.draw_raw_parameters(n_parameters, from_prior=from_prior))
     
-    def simulate_raw_data(self, n_samples : int, n_points : int) -> tuple[Tensor, Tensor]: # can be used before initializing the normalizer
-        raw_parameters = self.draw_raw_parameters_from_prior(n_samples)
+    def simulate_raw_data(self, n_samples : int, n_points : int, from_prior : bool = False) -> tuple[Tensor, Tensor]: # can be used before initializing the normalizer
+        raw_parameters = self.draw_raw_parameters(n_samples, from_prior=from_prior)
         return self.simulator.simulate_samples(raw_parameters, n_points), raw_parameters
     
-    def simulate_data(self, n_samples : int, n_points : int) -> tuple[Tensor, Tensor]:
-        raw_data, raw_parameters = self.simulate_raw_data(n_samples, n_points)
+    def simulate_data(self, n_samples : int, n_points : int, from_prior : bool = False) -> tuple[Tensor, Tensor]:
+        raw_data, raw_parameters = self.simulate_raw_data(n_samples, n_points, from_prior=from_prior)
         return self.normalizer.normalize_data(raw_data), self.normalizer.normalize_parameters(raw_parameters)
     
     def simulate_data_with_parameters(self, parameters : Tensor, n_points) -> Tensor:
@@ -187,18 +193,31 @@ class Model:
         return self.normalizer.normalize_data(raw_data) 
     
     @staticmethod
-    def _extend_unique_paths(base: list[Path], new: list[Path]) -> list[Path]:
-        seen = set(base)
+    def _extend_unique_paths(self, new: list[Path], proposal_round : int = None):
+        prop = proposal_round if proposal_round is not None else self.round
+        seen = set(e["path"] for e in self.data_files_paths)
         for p in new:
             if p not in seen:
-                base.append(p)
+                self.data_files_paths.append(Model.create_data_dict(p, proposal_round=prop))
                 seen.add(p)
-        return base
     
-    def append_data(self, data : Tensor, parameters : Tensor, files : list[Path] | None = None):
-        self.neural_network.append_simulations(parameters, data)
+    @staticmethod
+    def create_data_dict(path : Path, proposal_round : int = 0) -> dict:
+        return {"path": path, "proposal_round": proposal_round}
+
+    @staticmethod 
+    def export_paths(self) -> list[dict]:
+        return [{"path" : str(e["path"]), "proposal_round": e["proposal_round"]} for e in self.data_files_paths]
+
+    def append_data(self, data : Tensor, parameters : Tensor, files : list[Path] | None = None, proposal_round : int = None):
+        proposal = None
+        if proposal_round is not None:
+            proposal = self.proposals[proposal_round]
+        elif self.round > 0:
+            proposal = self.proposals[-1]
+        self.neural_network.append_simulations(parameters, data, proposal=proposal)
         if files is not None:
-            Model._extend_unique_paths(self.data_files_paths, files)
+            self._extend_unique_paths(files, proposal_round=proposal_round)
 
     def train(self, stop_after_epochs : int, max_num_epochs : int, resume_training : bool = False):  
         before = len(self.validation_loss) # todo mettre self.epoch ?
@@ -211,6 +230,12 @@ class Model:
     # direct : faster but less precise, used for diagnostics
     # rejection : compromise between direct and mcmc, used for the final version
     # mcmc : the most precise, but extremely slow, used for the final version if unlimited time is available
+
+    def SNPE_new_round(self, obs_raw_data : Tensor, sample_with : str = DEFAULT_SAMPLE_WITH):
+        self.round += 1
+        obs_data = self.normalizer.normalize_data(obs_raw_data)
+        new_proposal = self.build_posterior_with(sample_with=sample_with) 
+        self.proposals.append(new_proposal.set_default_x(obs_data))
 
     def build_posterior_with(self, sample_with : str): # 'direct', 'rejection' or 'mcmc'
         return self.neural_network.build_posterior(sample_with=sample_with)
@@ -226,111 +251,11 @@ class Model:
         parameters = self.draw_parameters_from_predicted_posterior(observed_sample, n_samples).squeeze(0)
         return self.simulate_data_with_parameters(parameters, n_points).squeeze(0), parameters.squeeze(0)
     
-    def get_random_true_parameter(self, n_points : int) -> tuple[Tensor, Tensor]:
-        data, parameters = self.simulate_data(n_samples=1, n_points=n_points)
+    def get_random_true_parameter(self, n_points : int, from_prior : bool = False) -> tuple[Tensor, Tensor]:
+        data, parameters = self.simulate_data(n_samples=1, n_points=n_points, from_prior=from_prior)
         return parameters.squeeze(0), data.squeeze(0)
     
-    def get_true_parameters_simulations_and_sampled_parameters(self, n_true : int, n_points : int, n_sampled_parameters : int) -> tuple[Tensor, Tensor, Tensor]:
-        observed_data, true_parameters = self.simulate_data(n_samples=n_true, n_points=n_points)
+    def get_true_parameters_simulations_and_sampled_parameters(self, n_true : int, n_points : int, n_sampled_parameters : int, from_prior : bool = False) -> tuple[Tensor, Tensor, Tensor]:
+        observed_data, true_parameters = self.simulate_data(n_samples=n_true, n_points=n_points, from_prior=from_prior)
         sampled_parameters = self.draw_parameters_from_predicted_posterior(observed_samples=observed_data, n_parameters=n_sampled_parameters)
         return true_parameters.squeeze(0), observed_data.squeeze(0), sampled_parameters.squeeze(0)
-
-
-    def change_device(self, device : torch.device | str):
-        device = torch.device(device)
-        if self.device == device: return
-        self.device = device
-
-        if self.prior is not None:
-            self.prior.low = self.prior.low.to(device)
-            self.prior.high = self.prior.high.to(device)
-            self.prior.device = device
-
-        if self.normalizer is not None:
-            self.normalizer.device = device
-            self.normalizer.data_mean = self.normalizer.data_mean.to(device)
-            self.normalizer.data_std = self.normalizer.data_std.to(device)
-            if self.normalizer.parameters_mean is not None:
-                self.normalizer.parameters_mean = self.normalizer.parameters_mean.to(device)
-            if self.normalizer.parameters_std is not None:
-                self.normalizer.parameters_std = self.normalizer.parameters_std.to(device)
-
-        if self.simulator is not None:
-            self.simulator.device = device
-
-        if self.neural_network is not None:
-            self.neural_network.device = device
-            if hasattr(self.neural_network, '_neural_net') and self.neural_network._neural_net is not None:
-                self.neural_network._neural_net.to(device)
-            if hasattr(self.neural_network, 'optimizer') and self.neural_network.optimizer is not None:
-                for state in self.neural_network.optimizer.state.values():
-                    for k, v in state.items():
-                        if isinstance(v, torch.Tensor):
-                            state[k] = v.to(device)
-
-        if self.posterior is not None:
-            self.posterior.to(device)
-
-
-    def info(self):
-        print("=" * 60)
-        print("Model information")
-        print("=" * 60)
-        print(f"Device: {self.device}")
-        print(f"Seed: {self.seed}")
-        print(f"Epoch: {self.epoch}")
-        print(f"n_points (per sample): {self.n_points}")
-        print()
-        print("Prior:")
-        print(f"  Type: {self.prior_type}")
-        if self.prior is not None:
-            print(f"  Bounds: low={self.prior.low.cpu().numpy()}, high={self.prior.high.cpu().numpy()}")
-        else:
-            print("  Not set")
-        print()
-        print("Simulator:")
-        if self.simulator is not None:
-            print(f"  stride={self.simulator.stride}, pre_N={self.simulator.pre_N}, preruns={self.simulator.preruns}")
-        else:
-            print("  Not set")
-        print()
-        print("Normalizer:")
-        if self.normalizer is not None:
-            print("  Initialized")
-        else:
-            print("  Not set")
-        print()
-        print("Architecture:")
-        print(f"  Encoder:")
-        print(f"    trial_num_layers = {self.trial_num_layers}")
-        print(f"    trial_num_hiddens = {self.trial_num_hiddens}")
-        print(f"    trial_embedding_dim = {self.trial_embedding_dim}")
-        print(f"    aggregated_num_layers = {self.aggregated_num_layers}")
-        print(f"    aggregated_num_hiddens = {self.aggregated_num_hiddens}")
-        print(f"    aggregated_output_dim = {self.aggregated_output_dim}")
-        print(f"    encoder_activation_function = {self.encoder_activation_function} (fixed in sbi)")
-        print()
-        print("NSF (density estimator):")
-        print(f"  nsf_hidden_features = {self.nsf_hidden_features}")
-        print(f"  nsf_num_transforms = {self.nsf_num_transforms}")
-        print(f"  nsf_num_bins = {self.nsf_num_bins}")
-        print(f"  nsf_activation_function = {self.nsf_activation_function}")
-        print(f"  weight_decay = {self.weight_decay}")
-        print()
-        print("Training:")
-        print(f"  Training loss entries: {len(self.training_loss)}")
-        print(f"  Validation loss entries: {len(self.validation_loss)}")
-        if self.best_val_epoch is not None:
-            print(f"  Best validation loss: {self.best_val_loss:.4e} at epoch {self.best_val_epoch}")
-        else:
-            print("  Best validation loss: not set")
-        print()
-        print("Data:")
-        print(f"  Number of data files: {len(self.data_files_paths)}")
-        print()
-        print("Posterior:")
-        if self.posterior is not None:
-            print("  Built")
-        else:
-            print("  Not built")
-        print("=" * 60)

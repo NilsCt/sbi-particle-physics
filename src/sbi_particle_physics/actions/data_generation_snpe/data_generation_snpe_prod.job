@@ -1,0 +1,22 @@
+executable = run_data_generation_snpe.sh
+
+# il faut modifier start_index et amount_per_worker dans le fichier .sh
+
+arguments = \
+  $(Process) \
+  --model-dir training_11 \
+  --data-dir data_4 \
+  --n-samples 10 \
+  --n-points 10000
+
+# PAS OUBLIER DE MODIFIER START_INDEX ET AMOOUNT_PER_WORKER DANS .SH
+
+output = logs/out.$(CLUSTER).$(PROCESS)
+error  = logs/err.$(CLUSTER).$(PROCESS)
+log    = logs/log.$(CLUSTER).$(PROCESS)
+
+request_cpus = 1
+request_memory = 1300
++MaxRuntime = 86400
+
+queue 100

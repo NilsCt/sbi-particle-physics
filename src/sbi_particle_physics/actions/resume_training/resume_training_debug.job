@@ -2,7 +2,7 @@ executable = run_resume_training.sh
 
 arguments = \
   --training-id 25 \
-  --data-dir data_3 \
+  --diagnostics-data-dir data_3 \
   --device cpu \
   --run-diagnostics \
   --n-diagnostic-files 5

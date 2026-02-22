@@ -1,0 +1,16 @@
+executable = run_new_snpe_round.sh
+
+arguments = \
+  --model-dir training_19 \
+  --new-model-dir training_19/round_2 \
+  --device cpu
+
+output = logs/out.$(CLUSTER).$(PROCESS)
+error  = logs/err.$(CLUSTER).$(PROCESS)
+log    = logs/log.$(CLUSTER).$(PROCESS)
+
+request_cpus = 1
+request_memory = 2000
++MaxRuntime = 600
+
+queue
