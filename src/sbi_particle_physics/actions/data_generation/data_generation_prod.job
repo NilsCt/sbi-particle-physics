@@ -16,7 +16,7 @@ error  = logs/err.$(CLUSTER).$(PROCESS)
 log    = logs/log.$(CLUSTER).$(PROCESS)
 
 request_cpus = 1
-request_memory = 1000
-+MaxRuntime = 36000
+request_memory = 1300
++MaxRuntime = 86400
 
 queue 100
