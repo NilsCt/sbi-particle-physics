@@ -221,7 +221,7 @@ class Model:
             self._extend_unique_paths(files, proposal_round=proposal_round)
 
     def train(self, stop_after_epochs : int, max_num_epochs : int, resume_training : bool = False):  
-        before = len(self.validation_loss) # todo mettre self.epoch ?
+        before = self.epoch # si ca marche pas il faut mettre len(validation_loss)
         self.neural_network.train(stop_after_epochs=stop_after_epochs, max_num_epochs=max_num_epochs, resume_training=resume_training, dataloader_kwargs={"num_workers": 0}) # dataloader_kwargs pour éviter de la duplication de mémoire
         self.epoch = self.neural_network.epoch
         new = self.epoch - before

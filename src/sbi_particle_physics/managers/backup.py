@@ -7,7 +7,7 @@ from sbi_particle_physics.objects.normalizer import Normalizer
 from tqdm.notebook import tqdm
 from pathlib import Path
 from sbi_particle_physics.managers.plotter import Plotter
-from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN, KEEP_LAST_N_BACKUPS, DEFAULT_ENCODER_ACTIVATION_FUNCTION, DEFAULT_NSF_ACTIVATION_FUNCTION, DEFAULT_WEIGHT_DECAY
+from sbi_particle_physics.config import DATA_FILE_PATTERN, MODEL_FILE_PATTERN, KEEP_LAST_N_BACKUPS, DEFAULT_ENCODER_ACTIVATION_FUNCTION, DEFAULT_NSF_ACTIVATION_FUNCTION, DEFAULT_WEIGHT_DECAY, Q2_MIN, Q2_MAX, MB_MIN, MB_MAX, LEPTON, QUARK, MODEL, EOS_DECAY, MB_MASS, MB_SIG_CORE_FRAC, MB_SIGMA1, MB_ALPHA1, MB_N1, MB_SIGMA2, MB_ALPHA2, MB_N2
 import sbi
 
 
@@ -60,8 +60,10 @@ class Backup:
         file_raw_data = checkpoint['raw_data']
         #file_raw_parameters = checkpoint['raw_parameters']
         file_raw_parameters = checkpoint['raw_parameters']
+        print(f"before shape {file_raw_data.shape} {file_raw_parameters.shape}")
         if len(file_raw_parameters.shape) >= 3:  # j'ai des fichiers de formats bizarre [N_samples, 1, 1] (ou un des deux 1 est d_parameter)
             file_raw_parameters = file_raw_parameters.squeeze(-1)
+        print(f"after shape {file_raw_data.shape} {file_raw_parameters.shape}")
         # todo j'ai sauvegardé tout mes fichiers dans un format bizarre ? savoir pourqoui est le regler. est ce que le squeeze fait casser si les fichiers étaient dans le bon format ?
         metadata = checkpoint['metadata']
         return file_raw_data, file_raw_parameters, metadata
@@ -174,10 +176,7 @@ class Backup:
                 "q2_max" : imp.q2_max,
                 "mb_min" : imp.mb_min,
                 "mb_max" : imp.mb_max,
-                "acceptance_coeffs_path" : imp.acceptance_coeffs_path,
-                "acceptance_orders" : imp.acceptance_orders,
-                "acceptance_ranges_dict" : imp.acceptance_ranges_dict,
-                "acceptance_coeffs" : imp.acceptance_coeffs,
+                "acceptance_coeffs_path" : str(imp.acceptance_coeffs_path),
                 "resolution_q2_sigma_core" : imp.resolution_q2_sigma_core,
                 "resolution_q2_sigma_tail" : imp.resolution_q2_sigma_tail,
                 "resolution_q2_tail_fraction" : imp.resolution_q2_tail_fraction,
@@ -191,13 +190,11 @@ class Backup:
                 "background_phi_p1" : imp.background_phi_p1,
                 "background_phi_p2" : imp.background_phi_p2,
                 "background_tau_bkg_mb" : imp.background_tau_bkg_mb,
-                "background_mb_min" : imp.background_mb_min,
-                "background_mb_max" : imp.background_mb_max,
                 "background_fsig_mb_window" : imp.background_fsig_mb_window
         }
-        posterior_cpu = model.posterior
-        if posterior_cpu is not None:
-            posterior_cpu.to("cpu") # avec sbi ca modifie l'objet en place (comme moi)
+        if model.posterior is not None:
+            old_device = model.posterior._device
+            model.posterior.to("cpu") # avec sbi ca modifie l'objet en place (comme moi)
         save_dict = {
             'device': model.device, # utils
             'n_points': model.n_points,
@@ -253,7 +250,7 @@ class Backup:
             'model_type': model.model_type, # for now constant information
             'z_score_x': model.z_score_x,
 
-            'posterior' : posterior_cpu, # sbi object for inference
+            'posterior' : model.posterior, # sbi object for inference
 
             'sbi_version' : sbi.__version__, # versions
             'torch_version' : torch.__version__,
@@ -269,6 +266,8 @@ class Backup:
             'round': model.round, # SNPE
             'proposals_ignoring_prior': model.proposals[1:]
         }
+        if model.posterior is not None:
+            model.posterior.to(old_device)
         file.parent.mkdir(parents=True, exist_ok=True)
         torch.save(save_dict, file)
         print(f"Model saved to {file}")
@@ -289,70 +288,30 @@ class Backup:
             for e in proposals: model.proposals.append(e)
 
         imperfections_cfg = save_dict.get("imperfections", None)
-        q2_min = save_dict.get("q2_min", None)
-        q2_max = save_dict.get("q2_max", None)
-        mb_min = save_dict.get("mb_min", None)
-        mb_max = save_dict.get("mb_max", None)
-        lepton = save_dict.get("lepton", None)
-        quark = save_dict.get("quark", None)
-        model_name = save_dict.get("model", None)
-        decay = save_dict.get("decay", None)
-        mb_sig_core_frac = save_dict.get("mb_sig_core_frac", None)
-        mb_mass = save_dict.get("mb_mass", None)
-        mb_sigma1 = save_dict.get("mb_sigma1", None)
-        mb_alpha1 = save_dict.get("mb_alpha1", None)
-        mb_n1 = save_dict.get("mb_n1", None)
-        mb_sigma2 = save_dict.get("mb_sigma2", None)
-        mb_alpha2 = save_dict.get("mb_alpha2", None)
-        mb_n2 = save_dict.get("mb_n2", None)
-        if imperfections_cfg is None:
-            model.set_simulator(
-                save_dict['stride'], 
-                save_dict['pre_N'], 
-                save_dict['preruns'], 
-                use_imperfections=False, 
-                q2_min=q2_min, 
-                q2_max=q2_max, 
-                mb_min=mb_min, 
-                mb_max=mb_max, 
-                lepton=lepton, 
-                quark=quark, 
-                model=model_name, 
-                decay=decay, 
-                mb_sig_core_frac=mb_sig_core_frac,
-                mb_mass=mb_mass,
-                mb_sigma1=mb_sigma1,
-                mb_alpha1=mb_alpha1,
-                mb_n1=mb_n1,
-                mb_sigma2=mb_sigma2,
-                mb_alpha2=mb_alpha2,
-                mb_n2=mb_n2
+        use_imperfections = imperfections_cfg is not None
+        model.set_simulator(
+                use_imperfections=use_imperfections, 
+                imperfections_kwargs=imperfections_cfg,
+                stride=save_dict['stride'], 
+                pre_N=save_dict['pre_N'], 
+                preruns=save_dict['preruns'], 
+                q2_min = save_dict.get("q2_min", Q2_MIN), 
+                q2_max=save_dict.get("q2_max", Q2_MAX), 
+                mb_min=save_dict.get("mb_min", MB_MIN), 
+                mb_max=save_dict.get("mb_max", MB_MAX), 
+                lepton=save_dict.get("lepton", LEPTON), 
+                quark=save_dict.get("quark", QUARK), 
+                model=save_dict.get("model", MODEL), 
+                decay=save_dict.get("decay", EOS_DECAY), 
+                mb_sig_core_frac=save_dict.get("mb_sig_core_frac", MB_SIG_CORE_FRAC),
+                mb_mass=save_dict.get("mb_mass", MB_MASS),
+                mb_sigma1=save_dict.get("mb_sigma1", MB_SIGMA1),
+                mb_alpha1=save_dict.get("mb_alpha1", MB_ALPHA1),
+                mb_n1=save_dict.get("mb_n1", MB_N1),
+                mb_sigma2=save_dict.get("mb_sigma2", MB_SIGMA2),
+                mb_alpha2=save_dict.get("mb_alpha2", MB_ALPHA2),
+                mb_n2=save_dict.get("mb_n2", MB_N2)
                 )
-        else:
-            model.set_simulator(
-                save_dict['stride'], 
-                save_dict['pre_N'], 
-                save_dict['preruns'], 
-                use_imperfections=True, 
-                q2_min=q2_min, 
-                q2_max=q2_max,
-                mb_min=mb_min, 
-                mb_max=mb_max, 
-                lepton=lepton, 
-                quark=quark, 
-                model=model_name, 
-                decay=decay, 
-                mb_sig_core_frac=mb_sig_core_frac,
-                mb_mass=mb_mass,
-                mb_sigma1=mb_sigma1,
-                mb_alpha1=mb_alpha1,
-                mb_n1=mb_n1,
-                mb_sigma2=mb_sigma2,
-                mb_alpha2=mb_alpha2,
-                mb_n2=mb_n2,
-                **imperfections_cfg
-                )
-            # todo charger correctement les paramètres d'imperfections car pour l'instant ca ne va pas marcher
 
         model.set_normalizer(save_dict['data_mean'], save_dict['data_std'])
 

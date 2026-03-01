@@ -351,7 +351,6 @@ class Improvements:
         plt.show()
 
         Improvements._radar_plot(model_names=model_names, avg_widths=avg_widths, avg_info_gains=avg_info_gains, avg_log_contractions=avg_log_contractions, avg_entropies=avg_entropies, robust_cv=robust_cv)
-        # todo fix radar plot
 
     @staticmethod
     def plot_drift_by_noise(model_dirs: list[Path], device: torch.device, raw_observed_data: Tensor, noise_levels: list[float], n_posterior_samples: int = 1000):
@@ -480,9 +479,6 @@ class Improvements:
         ax_width.set_yscale("log")
         fig.tight_layout()
         plt.show()
-
-    # todo ajouter courbe de référence 1/sqrt(N)
-
 
     @staticmethod
     def plot_drift_by_noise_poster(model_dirs: list[Path], device: torch.device, raw_observed_data: Tensor, noise_levels: list[float], labels: list[str], n_posterior_samples: int = 1000):

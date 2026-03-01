@@ -42,7 +42,23 @@ class Imperfections:
         use_resolution: bool = True,
         use_background: bool = True,
 
-        acceptance_coeffs_path : Path = ACCEPTANCE_COEFFS_PATH
+        acceptance_coeffs_path : Path | str  = ACCEPTANCE_COEFFS_PATH,
+
+        mkpi : float = MKPI,
+        resolution_q2_sigma_core : float = RESOLUTION_Q2_SIGMA_CORE,
+        resolution_q2_sigma_tail : float = RESOLUTION_Q2_SIGMA_TAIL,
+        resolution_q2_tail_fraction : float = RESOLUTION_Q2_TAIL_FRACTION,
+        resolution_q2_sigma_slope : float = RESOLUTION_Q2_SIGMA_SLOPE,
+        resolution_cos_theta_sigma : float = RESOLUTION_COSTHETA_SIGMA,
+        resolution_phi_sigma : float = RESOLUTION_PHI_SIGMA,
+        background_ctl_p1 : float = BACKGROUND_CTL_P1,
+        background_ctl_p2 : float = BACKGROUND_CTL_P2,
+        background_ctk_p1 : float = BACKGROUND_CTK_P1,
+        background_ctk_p2 : float = BACKGROUND_CTK_P2,
+        background_phi_p1 : float = BACKGROUND_PHI_P1,
+        background_phi_p2 : float = BACKGROUND_PHI_P2,
+        background_tau_bkg_mb : float = BACKGROUND_TAU_BKG_MB,
+        background_fsig_mb_window : float = BACKGROUND_FSIG_MB_WINDOW
     ):
         
         self.device : torch.device = device
@@ -52,7 +68,7 @@ class Imperfections:
         self.use_resolution : bool = use_resolution
         self.use_background : bool = use_background
 
-        self.mkpi : float = MKPI
+        self.mkpi : float = mkpi
         self.q2_min : float = q2_min
         self.q2_max : float = q2_max
         self.mb_min : float = mb_min
@@ -63,25 +79,25 @@ class Imperfections:
         self.acceptance_orders : dict | None = None 
         self.acceptance_ranges_dict : dict | None = None 
         self.acceptance_coeffs : Tensor | None = None
-        if self.use_acceptance: self._load_coefs(acceptance_coeffs_path)
+        if self.use_acceptance: self._load_coefs(Path(acceptance_coeffs_path))
 
         # Resolution
-        self.resolution_q2_sigma_core : float = RESOLUTION_Q2_SIGMA_CORE
-        self.resolution_q2_sigma_tail : float = RESOLUTION_Q2_SIGMA_TAIL
-        self.resolution_q2_tail_fraction : float = RESOLUTION_Q2_TAIL_FRACTION
-        self.resolution_q2_sigma_slope : float = RESOLUTION_Q2_SIGMA_SLOPE
-        self.resolution_cos_theta_sigma : float = RESOLUTION_COSTHETA_SIGMA
-        self.resolution_phi_sigma : float = RESOLUTION_PHI_SIGMA
+        self.resolution_q2_sigma_core : float = resolution_q2_sigma_core
+        self.resolution_q2_sigma_tail : float = resolution_q2_sigma_tail
+        self.resolution_q2_tail_fraction : float = resolution_q2_tail_fraction
+        self.resolution_q2_sigma_slope : float = resolution_q2_sigma_slope
+        self.resolution_cos_theta_sigma : float = resolution_cos_theta_sigma
+        self.resolution_phi_sigma : float = resolution_phi_sigma
 
         # background
-        self.background_ctl_p1 : float = BACKGROUND_CTL_P1
-        self.background_ctl_p2 : float = BACKGROUND_CTL_P2
-        self.background_ctk_p1 : float = BACKGROUND_CTK_P1
-        self.background_ctk_p2 : float = BACKGROUND_CTK_P2
-        self.background_phi_p1 : float = BACKGROUND_PHI_P1
-        self.background_phi_p2 : float = BACKGROUND_PHI_P2
-        self.background_tau_bkg_mb : float = BACKGROUND_TAU_BKG_MB
-        self.background_fsig_mb_window : float = BACKGROUND_FSIG_MB_WINDOW
+        self.background_ctl_p1 : float = background_ctl_p1
+        self.background_ctl_p2 : float = background_ctl_p2
+        self.background_ctk_p1 : float = background_ctk_p1
+        self.background_ctk_p2 : float = background_ctk_p2
+        self.background_phi_p1 : float = background_phi_p1
+        self.background_phi_p2 : float = background_phi_p2
+        self.background_tau_bkg_mb : float = background_tau_bkg_mb
+        self.background_fsig_mb_window : float = background_fsig_mb_window
 
 
     def to_tensor(self, x, dtype=torch.float32) -> Tensor:
