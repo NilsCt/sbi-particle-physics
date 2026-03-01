@@ -182,7 +182,10 @@ class Model:
     
     def simulate_raw_data(self, n_samples : int, n_points : int, from_prior : bool = False) -> tuple[Tensor, Tensor]: # can be used before initializing the normalizer
         raw_parameters = self.draw_raw_parameters(n_samples, from_prior=from_prior)
-        return self.simulator.simulate_samples(raw_parameters, n_points), raw_parameters
+        print(f"raw parameters shape {raw_parameters.shape}")
+        x = self.simulator.simulate_samples(raw_parameters, n_points)
+        print(f"raw data shape {x.shape}")
+        return x, raw_parameters
     
     def simulate_data(self, n_samples : int, n_points : int, from_prior : bool = False) -> tuple[Tensor, Tensor]:
         raw_data, raw_parameters = self.simulate_raw_data(n_samples, n_points, from_prior=from_prior)

@@ -32,8 +32,8 @@ def main():
     device = "cpu"  # eos not CUDA-compatible
     model = Model(device, n_points=args.n_points)
 
-    prior_low_raw = model.to_tensor([args.prior_low])
-    prior_high_raw = model.to_tensor([args.prior_high])
+    prior_low_raw = model.to_tensor(args.prior_low)
+    prior_high_raw = model.to_tensor(args.prior_high)
 
     model.set_prior(prior_low_raw, prior_high_raw)
     print("Use imperfections:", args.use_imperfections)
