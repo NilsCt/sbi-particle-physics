@@ -46,3 +46,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# nice -n 19 nohup python -m sbi_particle_physics.actions.data_generation.data_generation --start-index 300 --amount 1 --directory data_4 --n-samples 1 --n-points 10000 --use-imperfections True &

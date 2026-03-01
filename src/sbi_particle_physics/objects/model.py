@@ -9,7 +9,7 @@ from sbi.neural_nets import posterior_nn
 from sbi.neural_nets.embedding_nets import FCEmbedding, PermutationInvariantEmbedding
 from sbi.utils import BoxUniform
 from matplotlib.pylab import RandomState
-from sbi_particle_physics.config import ENCODED_POINT_DIM, DEFAULT_TRIAL_EMBEDDING_DIM, DEFAULT_TRIAL_NUM_LAYERS, DEFAULT_AGGREGATED_NUM_HIDDENS, DEFAULT_AGGREGATED_NUM_LAYERS, DEFAULT_AGGREGATED_OUTPUT_DIM, DEFAULT_NSF_HIDDEN_FEATURES, DEFAULT_NSF_NUM_BINS, DEFAULT_NSF_NUM_TRANSFORMS, DEFAULT_TRIAL_NUM_HIDDENS, DEFAULT_SAMPLE_WITH, DEFAULT_ENCODER_ACTIVATION_FUNCTION, DEFAULT_NSF_ACTIVATION_FUNCTION, DEFAULT_WEIGHT_DECAY
+from sbi_particle_physics.config import ENCODED_POINT_DIM, DEFAULT_TRIAL_EMBEDDING_DIM, DEFAULT_TRIAL_NUM_LAYERS, DEFAULT_AGGREGATED_NUM_HIDDENS, DEFAULT_AGGREGATED_NUM_LAYERS, DEFAULT_AGGREGATED_OUTPUT_DIM, DEFAULT_NSF_HIDDEN_FEATURES, DEFAULT_NSF_NUM_BINS, DEFAULT_NSF_NUM_TRANSFORMS, DEFAULT_TRIAL_NUM_HIDDENS, DEFAULT_SAMPLE_WITH, DEFAULT_ENCODER_ACTIVATION_FUNCTION, DEFAULT_NSF_ACTIVATION_FUNCTION, DEFAULT_WEIGHT_DECAY, DEFAULT_PRIOR_LOW, DEFAULT_PRIOR_HIGH
 from pathlib import Path
 
 # conda activate mlhep
@@ -69,9 +69,11 @@ class Model:
     def to_tensor(self, x, dtype=torch.float32) -> Tensor:
         return torch.as_tensor(x, dtype=dtype, device=self.device)
     
-    def set_prior(self, raw_low : Tensor, raw_high : Tensor):
+    def set_prior(self, raw_low : Tensor | None = None, raw_high : Tensor | None = None):
         # low and high are raw since the normalization has not been done yet when this function is called
-        self.prior = BoxUniform(low=raw_low, high=raw_high, device=self.device)
+        rl = self.to_tensor(DEFAULT_PRIOR_LOW) if raw_low is None else raw_low
+        rh = self.to_tensor(DEFAULT_PRIOR_HIGH) if raw_high is None else raw_high
+        self.prior = BoxUniform(low=rl, high=rh, device=self.device)
         self.proposals = [self.prior] 
 
     def set_prior_basic(self, raw_low : list[float] | np.ndarray, raw_high : list[float] | np.ndarray):
@@ -79,11 +81,24 @@ class Model:
         high = self.to_tensor(raw_high)
         self.set_prior(low, high)
 
-    def set_simulator(self, stride : int, pre_N : int, preruns : int, *, use_imperfections: bool = False, **imperfections):
-        self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns)
+    def set_simulator(self, 
+            stride : int | None = None,
+            pre_N : int | None = None, 
+            preruns : int | None = None,  
+            q2_min : float | None = None, 
+            q2_max : float | None = None, 
+            mb_min : float | None = None, 
+            mb_max : float | None = None, 
+            lepton : str | None = None, 
+            quark : str | None = None, 
+            model : str | None = None, 
+            decay : str | None = None, 
+            use_imperfections: bool = False, 
+            **imperfections
+        ):
+        self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns, q2_min=q2_min, q2_max=q2_max, mb_min=mb_min, mb_max=mb_max, lepton=lepton, quark=quark, model=model, decay=decay)
         if use_imperfections:
-            imperfections = Imperfections(device=self.device, rng=self.rng, **imperfections)
-            self.simulator.set_imperfections(imperfections)
+            self.simulator.set_imperfections(**imperfections)
 
     def set_normalizer(self, data_mean : Tensor, data_std : Tensor):
         self.normalizer = Normalizer(self.device, data_mean, data_std)

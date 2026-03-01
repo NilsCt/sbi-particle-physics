@@ -12,12 +12,8 @@ from sbi_particle_physics.config import (
     BACKGROUND_CTK_P2, 
     BACKGROUND_PHI_P1, 
     BACKGROUND_PHI_P2, 
-    BACKGROUND_MB_MIN, 
-    BACKGROUND_MB_MAX, 
     BACKGROUND_TAU_BKG_MB, 
     BACKGROUND_FSIG_MB_WINDOW, 
-    RESOLUTION_Q2_MIN, 
-    RESOLUTION_Q2_MAX, 
     RESOLUTION_Q2_SIGMA_CORE, 
     RESOLUTION_Q2_SIGMA_SLOPE, 
     RESOLUTION_Q2_SIGMA_TAIL, 
@@ -37,6 +33,11 @@ class Imperfections:
         device: torch.device,
         rng: RandomState,
 
+        q2_min : float,
+        q2_max : float,
+        mb_min : float,
+        mb_max : float,
+
         use_acceptance: bool = True, # flags
         use_resolution: bool = True,
         use_background: bool = True,
@@ -52,8 +53,10 @@ class Imperfections:
         self.use_background : bool = use_background
 
         self.mkpi : float = MKPI
-        self.q2_min : float = RESOLUTION_Q2_MIN
-        self.q2_max : float = RESOLUTION_Q2_MAX
+        self.q2_min : float = q2_min
+        self.q2_max : float = q2_max
+        self.mb_min : float = mb_min
+        self.mb_max : float = mb_max
 
         # acceptance
         self.acceptance_coeffs_path : Path | None = None
@@ -78,8 +81,6 @@ class Imperfections:
         self.background_phi_p1 : float = BACKGROUND_PHI_P1
         self.background_phi_p2 : float = BACKGROUND_PHI_P2
         self.background_tau_bkg_mb : float = BACKGROUND_TAU_BKG_MB
-        self.background_mb_min : float = BACKGROUND_MB_MIN
-        self.background_mb_max : float = BACKGROUND_MB_MAX
         self.background_fsig_mb_window : float = BACKGROUND_FSIG_MB_WINDOW
 
 
@@ -94,9 +95,9 @@ class Imperfections:
         if self.use_acceptance:
             a = x.shape[0]
             #print("before applying acceptance")
-            #q2_min = torch.min(x[:,0]).item()
-            #q2_max = torch.max(x[:,0]).item()
-            #print(f"q2 range in input: [{q2_min}, {q2_max}]")
+            #s_min = torch.min(x[:,0]).item()
+            #s_max = torch.max(x[:,0]).item()
+            #print(f"s range in input: [{s_min}, {s_max}]")
             #ctl_min = torch.min(x[:,1]).item()
             #ctl_max = torch.max(x[:,1]).item()
             #print(f"ctl range in input: [{ctl_min}, {ctl_max}]")
@@ -130,7 +131,7 @@ class Imperfections:
         with open(path, "r") as f:
             header = f.readline().removeprefix("#").strip()
         header_vals = np.array(header.split(), dtype=float)
-        Nm, Nq2, Nctl, Nctk, Nphi  = header_vals[:5].astype(int) #number of coeffs per observable (max order=1) of the legendre polynomials (mKpi, q2, cosθl, cosθK, phi)
+        Nm, Nq2, Nctl, Nctk, Nphi  = header_vals[:5].astype(int) #number of coeffs per observable (max order=1) of the legendre polynomials (mKpi, s, cosθl, cosθK, phi)
         self.acceptance_orders = {
             "mkpi": Nm-1,
             "q2": Nq2-1,
@@ -180,7 +181,7 @@ class Imperfections:
         is_tail = torch.rand(n, device=self.device) < self.resolution_q2_tail_fraction
 
         base_sigma = torch.where(is_tail, self.resolution_q2_sigma_tail, self.resolution_q2_sigma_core)
-        sigma_q2 = base_sigma * torch.clamp(1.0 + self.resolution_q2_sigma_slope * q2, min=0.0) # make it dependent to q^2
+        sigma_q2 = base_sigma * torch.clamp(1.0 + self.resolution_q2_sigma_slope * q2, min=0.0) # make it dependent to q2
         q2 = q2 + sigma_q2 * torch.randn_like(q2)
         q2 = torch.clamp(q2, self.q2_min, self.q2_max)
 
@@ -225,11 +226,11 @@ class Imperfections:
 
     def _sample_background_events(self, n: int) -> Tensor:
         # Generates n background events
-        q2 = self.q2_min + (self.q2_max - self.q2_min) * torch.rand(n, device=self.device) # q^2 is uniform in [q2_min, q2_max]
+        q2 = self.q2_min + (self.q2_max - self.q2_min) * torch.rand(n, device=self.device) # q2 is uniform in [q2_min, q2_max]
         ctl = self._sample_cheb2(n, self.background_ctl_p1, self.background_ctl_p2)
         ctk = self._sample_cheb2(n, self.background_ctk_p1, self.background_ctk_p2)
         phi = self._sample_cheb2(n, self.background_phi_p1, self.background_phi_p2) * torch.pi # Chebyshev gives phi in [-1,1] instead of [-pi, pi]
-        mB = self._sample_trunc_exp(n, self.background_tau_bkg_mb, self.background_mb_min, self.background_mb_max)
+        mB = self._sample_trunc_exp(n, self.background_tau_bkg_mb, self.mb_min, self.mb_max)
         x_bkg = torch.stack([q2, ctl, ctk, phi, mB], dim=1)
         return x_bkg
 

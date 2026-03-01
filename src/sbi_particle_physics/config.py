@@ -38,21 +38,13 @@ PARAMETERS_DIM = 1
 #            'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
 #            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
 #}
-EOS_KINEMATICS = {
-            's':             2.0,   's_min':             1.1,       's_max' :            6,
-            'cos(theta_l)^LHCb':  0.0,  'cos(theta_l)^LHCb_min': -1.0,      'cos(theta_l)^LHCb_max': +1.0,
-            'cos(theta_k)^LHCb':  0.0,  'cos(theta_k)^LHCb_min': -1.0,      'cos(theta_k)^LHCb_max': +1.0,
-            'phi^LHCb':           0.3,  'phi^LHCb_min':           -1.0*np.pi,      'phi^LHCb_max':           1.0 * np.pi,
-}
-EOS_OPTIONS = {
-            'l': 'mu',
-            'q': 'd',
-            'model': 'WET',
-            'debug': 'false',
-            'logging': 'quiet',
-            'log-level': 'off',
-}
-#EOS_DECAY = 'B->K^*ll::d^4Gamma@LargeRecoil'
+Q2_MIN = 1.1 # GeV^2
+Q2_MAX = 6.0 # GeV^2
+MB_MIN = 5.170 # GeV
+MB_MAX = 5.700 # GeV
+LEPTON = "mu"
+QUARK = "d"
+MODEL = "WET"
 EOS_DECAY = 'B->K^*ll::d^4Gamma@LargeRecoil' # normal
 EOS_PARAMETER = "b->smumu::Re{c9}"
 
@@ -110,7 +102,7 @@ PLOT_COLORS = [
 ]
 
 # Imperfections
-IMPERFECTIONS_OVERSAMPLE_FACTOR = 6 # ideal: 
+IMPERFECTIONS_OVERSAMPLE_FACTOR = 5.5 # ideal: 
 IMPERFECTIONS_MAX_TRIES = 20
 
 MKPI = 0.892 # GeV
@@ -119,11 +111,9 @@ ACCEPTANCE_COEFFS_PATH = IMPERFECTIONS / "2017_nominal_B0_highq2.dat"
 RESOLUTION_Q2_SIGMA_CORE = 0.05 # GeV^2
 RESOLUTION_Q2_SIGMA_TAIL = 0.20 # GeV^2
 RESOLUTION_Q2_TAIL_FRACTION = 0.10
-RESOLUTION_Q2_SIGMA_SLOPE = 0.00 # optional: sigma = base*(1 + slope*q2)
+RESOLUTION_Q2_SIGMA_SLOPE = 0.00 # optional: sigma = base*(1 + slope*s)
 RESOLUTION_COSTHETA_SIGMA = 0.02
 RESOLUTION_PHI_SIGMA = 0.02
-RESOLUTION_Q2_MIN = 0.9
-RESOLUTION_Q2_MAX = 19.1
 
 BACKGROUND_CTL_P1 = 0.47729639827133913
 BACKGROUND_CTL_P2 = 0.20711973237496167
@@ -133,7 +123,6 @@ BACKGROUND_PHI_P1 = 0.22164874798386383
 BACKGROUND_PHI_P2 = 0.06741043820550917
 BACKGROUND_TAU_BKG_MB = -5.745 # background mB exponential slope en GeV^-1
 BACKGROUND_FSIG_MB_WINDOW = 0.770766 # signal fraction in mB window
-BACKGROUND_MB_MIN, BACKGROUND_MB_MAX = 5.170, 5.700 # GeV
 
 # Real data
 TREE_NAME = "DecayTree"

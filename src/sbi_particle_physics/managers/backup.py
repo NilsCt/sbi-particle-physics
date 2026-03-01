@@ -22,18 +22,11 @@ class Backup:
         return directory / filename
 
     @staticmethod
-    def save_data(file : Path, device, prior_low_raw : Tensor, prior_high_raw : Tensor, raw_data : Tensor, raw_parameters : Tensor, stride : int, pre_N : int, preruns : int):
+    def save_data(file : Path, raw_data : Tensor, raw_parameters : Tensor, metadata : dict):
         torch.save({
-        'raw_data': raw_data,
-        'raw_parameters': raw_parameters,
-        'metadata': {
-            'device': str(device),
-            'prior_low_raw': prior_low_raw.cpu().numpy(),
-            'prior_high_raw': prior_high_raw.cpu().numpy(),
-            'stride': stride, # just for information
-            'pre_N': pre_N,
-            'preruns': preruns
-            }
+            'raw_data': raw_data,
+            'raw_parameters': raw_parameters,
+            'metadata': metadata
         }, file)
 
     @staticmethod
@@ -43,7 +36,8 @@ class Backup:
         for i in range(start_index, start_index + amount):
             location = Backup._data_file_path(directory, i)
             raw_data, raw_parameters = model.simulate_raw_data(n_samples, n_points)
-            Backup.save_data(location, model.device, prior_low_raw, prior_high_raw, raw_data, raw_parameters, model.simulator.stride, model.simulator.pre_N, model.simulator.preruns)
+            metadata = model.simulator.get_metadata(prior_low_raw, prior_high_raw)
+            Backup.save_data(location, raw_data, raw_parameters, metadata)
 
 
     @staticmethod
@@ -178,6 +172,8 @@ class Backup:
                 "mkpi" : imp.mkpi,
                 "q2_min": imp.q2_min,
                 "q2_max" : imp.q2_max,
+                "mb_min" : imp.mb_min,
+                "mb_max" : imp.mb_max,
                 "acceptance_coeffs_path" : imp.acceptance_coeffs_path,
                 "acceptance_orders" : imp.acceptance_orders,
                 "acceptance_ranges_dict" : imp.acceptance_ranges_dict,
@@ -214,6 +210,14 @@ class Backup:
             'stride': model.simulator.stride, # simulator
             'pre_N': model.simulator.pre_N,
             'preruns': model.simulator.preruns,
+            'q2_min': model.simulator.q2_min,
+            'q2_max': model.simulator.q2_max,
+            'mb_min': model.simulator.mb_min,
+            'mb_max': model.simulator.mb_max,
+            'lepton': model.simulator.lepton,
+            'quark': model.simulator.quark,
+            'model': model.simulator.model,
+            'decay': model.simulator.decay,
             'imperfections': imperfections,
 
             'data_mean': model.normalizer.data_mean.cpu(), # normalizer
@@ -277,10 +281,18 @@ class Backup:
             for e in proposals: model.proposals.append(e)
 
         imperfections_cfg = save_dict.get("imperfections", None)
+        q2_min = save_dict.get("q2_min", None)
+        q2_max = save_dict.get("q2_max", None)
+        mb_min = save_dict.get("mb_min", None)
+        mb_max = save_dict.get("mb_max", None)
+        lepton = save_dict.get("lepton", None)
+        quark = save_dict.get("quark", None)
+        model_name = save_dict.get("model", None)
+        decay = save_dict.get("decay", None)
         if imperfections_cfg is None:
-            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'])
+            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'], use_imperfections=False, q2_min=q2_min, q2_max=q2_max, mb_min=mb_min, mb_max=mb_max, lepton=lepton, quark=quark, model=model_name, decay=decay)
         else:
-            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'], use_imperfections=True, **imperfections_cfg)
+            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'], use_imperfections=True, q2_min=q2_min, q2_max=q2_max, mb_min=mb_min, mb_max=mb_max, lepton=lepton, quark=quark, model=model_name, decay=decay, **imperfections_cfg)
             # todo charger correctement les paramètres d'imperfections car pour l'instant ca ne va pas marcher
 
         model.set_normalizer(save_dict['data_mean'], save_dict['data_std'])

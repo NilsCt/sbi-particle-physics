@@ -4,10 +4,11 @@ executable = run_data_generation.sh
 
 arguments = \
   $(Process) \
-  --directory data_4 \
-  --n-samples 10 \
+  --directory data_5 \
+  --n-samples 1 \
   --n-points 10000 \
-  --use-imperfections True
+  --use-imperfections False
+# etonnamenet ca n'avais pas marche de ne pas utilise imperfections ?!
 
 # PAS OUBLIER DE MODIFIER START_INDEX ET AMOOUNT_PER_WORKER DANS .SH
 
@@ -17,6 +18,6 @@ log    = logs/log.$(CLUSTER).$(PROCESS)
 
 request_cpus = 1
 request_memory = 1300
-+MaxRuntime = 86400
++MaxRuntime = 64800
 
 queue 100
