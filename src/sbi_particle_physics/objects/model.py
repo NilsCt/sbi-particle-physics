@@ -81,24 +81,10 @@ class Model:
         high = self.to_tensor(raw_high)
         self.set_prior(low, high)
 
-    def set_simulator(self, 
-            stride : int | None = None,
-            pre_N : int | None = None, 
-            preruns : int | None = None,  
-            q2_min : float | None = None, 
-            q2_max : float | None = None, 
-            mb_min : float | None = None, 
-            mb_max : float | None = None, 
-            lepton : str | None = None, 
-            quark : str | None = None, 
-            model : str | None = None, 
-            decay : str | None = None, 
-            use_imperfections: bool = False, 
-            **imperfections
-        ):
-        self.simulator = Simulator(self.device, self.rng, stride, pre_N, preruns, q2_min=q2_min, q2_max=q2_max, mb_min=mb_min, mb_max=mb_max, lepton=lepton, quark=quark, model=model, decay=decay)
+    def set_simulator(self, use_imperfections: bool = False, imperfections_kwargs: dict | None = None, **simulator_kwargs):
+        self.simulator = Simulator(device=self.device, rng=self.rng, **simulator_kwargs)
         if use_imperfections:
-            self.simulator.set_imperfections(**imperfections)
+            self.simulator.set_imperfections(**(imperfections_kwargs or {}))
 
     def set_normalizer(self, data_mean : Tensor, data_std : Tensor):
         self.normalizer = Normalizer(self.device, data_mean, data_std)

@@ -218,6 +218,14 @@ class Backup:
             'quark': model.simulator.quark,
             'model': model.simulator.model,
             'decay': model.simulator.decay,
+            'mb_sig_core_frac': model.simulator.mb_sig_core_frac,
+            'mb_mass': model.simulator.mb_mass,
+            'mb_sigma1': model.simulator.mb_sigma1,
+            'mb_n1': model.simulator.mb_n1,
+            'mb_alpha1': model.simulator.mb_alpha1,
+            'mb_sigma2': model.simulator.mb_sigma2,
+            'mb_alpha2': model.simulator.mb_alpha2,
+            'mb_n2': model.simulator.mb_n2,
             'imperfections': imperfections,
 
             'data_mean': model.normalizer.data_mean.cpu(), # normalizer
@@ -289,10 +297,61 @@ class Backup:
         quark = save_dict.get("quark", None)
         model_name = save_dict.get("model", None)
         decay = save_dict.get("decay", None)
+        mb_sig_core_frac = save_dict.get("mb_sig_core_frac", None)
+        mb_mass = save_dict.get("mb_mass", None)
+        mb_sigma1 = save_dict.get("mb_sigma1", None)
+        mb_alpha1 = save_dict.get("mb_alpha1", None)
+        mb_n1 = save_dict.get("mb_n1", None)
+        mb_sigma2 = save_dict.get("mb_sigma2", None)
+        mb_alpha2 = save_dict.get("mb_alpha2", None)
+        mb_n2 = save_dict.get("mb_n2", None)
         if imperfections_cfg is None:
-            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'], use_imperfections=False, q2_min=q2_min, q2_max=q2_max, mb_min=mb_min, mb_max=mb_max, lepton=lepton, quark=quark, model=model_name, decay=decay)
+            model.set_simulator(
+                save_dict['stride'], 
+                save_dict['pre_N'], 
+                save_dict['preruns'], 
+                use_imperfections=False, 
+                q2_min=q2_min, 
+                q2_max=q2_max, 
+                mb_min=mb_min, 
+                mb_max=mb_max, 
+                lepton=lepton, 
+                quark=quark, 
+                model=model_name, 
+                decay=decay, 
+                mb_sig_core_frac=mb_sig_core_frac,
+                mb_mass=mb_mass,
+                mb_sigma1=mb_sigma1,
+                mb_alpha1=mb_alpha1,
+                mb_n1=mb_n1,
+                mb_sigma2=mb_sigma2,
+                mb_alpha2=mb_alpha2,
+                mb_n2=mb_n2
+                )
         else:
-            model.set_simulator(save_dict['stride'], save_dict['pre_N'], save_dict['preruns'], use_imperfections=True, q2_min=q2_min, q2_max=q2_max, mb_min=mb_min, mb_max=mb_max, lepton=lepton, quark=quark, model=model_name, decay=decay, **imperfections_cfg)
+            model.set_simulator(
+                save_dict['stride'], 
+                save_dict['pre_N'], 
+                save_dict['preruns'], 
+                use_imperfections=True, 
+                q2_min=q2_min, 
+                q2_max=q2_max,
+                mb_min=mb_min, 
+                mb_max=mb_max, 
+                lepton=lepton, 
+                quark=quark, 
+                model=model_name, 
+                decay=decay, 
+                mb_sig_core_frac=mb_sig_core_frac,
+                mb_mass=mb_mass,
+                mb_sigma1=mb_sigma1,
+                mb_alpha1=mb_alpha1,
+                mb_n1=mb_n1,
+                mb_sigma2=mb_sigma2,
+                mb_alpha2=mb_alpha2,
+                mb_n2=mb_n2,
+                **imperfections_cfg
+                )
             # todo charger correctement les paramètres d'imperfections car pour l'instant ca ne va pas marcher
 
         model.set_normalizer(save_dict['data_mean'], save_dict['data_std'])
