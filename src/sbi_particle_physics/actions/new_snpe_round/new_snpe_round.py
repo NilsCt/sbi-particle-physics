@@ -24,7 +24,7 @@ def main():
 
     model = Backup.load_model_for_inference_basic(directory=MODELS_DIR / args.model_dir, device=torch.device(args.device))
 
-    raw_data = RealData.load_n_points(REAL_DATA, model.n_points, device=model.device)
+    raw_data, _ = RealData.load_n_points(REAL_DATA, model.n_points, device=model.device)
     
     model.SNPE_new_round(raw_data)
 

@@ -47,6 +47,7 @@ QUARK = "d"
 MODEL = "WET"
 EOS_DECAY = 'B->K^*ll::d^4Gamma@LargeRecoil' # normal
 EOS_PARAMETER = "b->smumu::Re{c9}"
+MKPI = 0.892 # GeV
 
 # Simulator
 DEFAULT_PRIOR_LOW = [3]
@@ -118,7 +119,6 @@ PLOT_COLORS = [
 IMPERFECTIONS_OVERSAMPLE_FACTOR = 5.5 # ideal: 
 IMPERFECTIONS_MAX_TRIES = 20
 
-MKPI = 0.892 # GeV
 ACCEPTANCE_COEFFS_PATH = IMPERFECTIONS / "2017_nominal_B0_highq2.dat"
 
 RESOLUTION_Q2_SIGMA_CORE = 0.05 # GeV^2
@@ -140,3 +140,4 @@ BACKGROUND_FSIG_MB_WINDOW = 0.770766 # signal fraction in mB window
 # Real data
 TREE_NAME = "DecayTree"
 BRANCHES = ["q2", "ctl", "ctk", "phi", "mB"]
+MKPI_DELTA = 0.060 # GeV

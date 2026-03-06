@@ -57,13 +57,33 @@ class ModelDiagnostics:
         else:
             fig.savefig(path)
 
-    @staticmethod
-    def _summary_stats(x):
+    #@staticmethod
+    #def _summary_stats(x):
     # x shape: (n_points, D)
-        return torch.stack([
-            x.mean(dim=0),
-            x.std(dim=0),
-        ], dim=0)  # shape (2, D)
+    #    return torch.stack([
+    #        x.mean(dim=0),
+    #        x.std(dim=0),
+    #    ], dim=0)  # shape (2, D)
+
+    @staticmethod
+    def _summary_stats(x : Tensor) -> Tensor:
+        mean = x.mean(dim=0)
+        std = x.std(dim=0)
+        centered = x - mean
+        skew = (centered**3).mean(dim=0) / (std**3 + 1e-8)
+        kurt = (centered**4).mean(dim=0) / (std**4 + 1e-8)
+        q10 = torch.quantile(x, 0.10, dim=0)
+        q25 = torch.quantile(x, 0.25, dim=0)
+        q50 = torch.quantile(x, 0.50, dim=0)
+        q75 = torch.quantile(x, 0.75, dim=0)
+        q90 = torch.quantile(x, 0.90, dim=0)
+        xmin = x.min(dim=0).values
+        xmax = x.max(dim=0).values
+        cov = torch.cov(x.T) # correlations
+        std_outer = std[:, None] * std[None, :]
+        corr = cov / (std_outer + 1e-8)
+        corr_features = corr[torch.triu(torch.ones_like(corr), diagonal=1) == 1]
+        return torch.cat([ mean, std, skew, kurt, q10, q25, q50, q75, q90, xmin, xmax, corr_features ])
 
     @staticmethod
     def posterior_predictive_checks(model : Model, x_o : Tensor, n_samples : int, n_points : int, path : Path = None):
@@ -270,6 +290,12 @@ class ModelDiagnostics:
             x=summaries,
             mode="x_space"
         )
+        #p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
+        #    inference=None,
+        #    x_obs=x_o.unsqueeze(0),
+        #    x=x_train,
+        #    mode="x_space"
+        #)
         print("MMD p-value:", p_val) # needs to be larger than 0.05 to be sure there is no missspecification
         plt.figure(figsize=(6, 4), dpi=80)
         plt.hist(mmds_baseline.numpy(), bins=50, alpha=0.5, label="baseline")
