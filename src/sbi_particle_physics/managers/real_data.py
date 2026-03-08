@@ -52,7 +52,7 @@ class RealData:
         """
         file = uproot.open(file)
         tree = file[TREE_NAME]
-        print(f"tree branches: {tree.keys()}")
+        #print(f"tree branches: {tree.keys()}")
         raw_data = tree.arrays(BRANCHES, library="ak")
         raw_X = np.stack([ak.to_numpy(raw_data[b]) for b in BRANCHES], axis=1)
         raw_X[:, -1] = raw_X[:, -1] / 1000.0 # convert mB from MeV to GeV

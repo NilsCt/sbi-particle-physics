@@ -1,3 +1,5 @@
+from importlib.resources import files
+
 import numpy as np
 from sklearn import neural_network
 import torch
@@ -55,15 +57,15 @@ class Backup:
     
     @staticmethod
     def load_one_file(file : Path, device : torch.device) -> tuple[Tensor, Tensor, dict]:
-        print("Loading a file")
+        #print("Loading a file")
         checkpoint = torch.load(file, weights_only=False, map_location=device)
         file_raw_data = checkpoint['raw_data']
         #file_raw_parameters = checkpoint['raw_parameters']
         file_raw_parameters = checkpoint['raw_parameters']
-        print(f"before shape {file_raw_data.shape} {file_raw_parameters.shape}")
+        #print(f"before shape {file_raw_data.shape} {file_raw_parameters.shape}")
         if len(file_raw_parameters.shape) >= 3:  # j'ai des fichiers de formats bizarre [N_samples, 1, 1] (ou un des deux 1 est d_parameter)
             file_raw_parameters = file_raw_parameters.squeeze(-1)
-        print(f"after shape {file_raw_data.shape} {file_raw_parameters.shape}")
+        #print(f"after shape {file_raw_data.shape} {file_raw_parameters.shape}")
         # todo j'ai sauvegardé tout mes fichiers dans un format bizarre ? savoir pourqoui est le regler. est ce que le squeeze fait casser si les fichiers étaient dans le bon format ?
         metadata = checkpoint['metadata']
         return file_raw_data, file_raw_parameters, metadata
@@ -136,7 +138,7 @@ class Backup:
             model.append_data(data, parameters, f, proposal_round=proposal_round) 
 
     @staticmethod
-    def load_data_and_build_model(directory : Path, device : torch.device, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None, max_points : int = None) -> Model:
+    def load_data_and_build_model(directory : Path, device : torch.device, batchsize : int, stride : int, pre_N : int, preruns : int, seed : int = None, max_files : int = None, max_points : int = None, use_imperfections : bool = False) -> Model:
         # warning: here batchsize corresponds to the number of data files used at a time, not of samples
         # one file contains around 500 samples
         files = Backup.detect_files(directory) 
@@ -154,7 +156,7 @@ class Backup:
         prior_low_raw = model.to_tensor(metadata['prior_low_raw'])
         prior_high_raw = model.to_tensor(metadata['prior_high_raw'])
         model.set_prior(prior_low_raw, prior_high_raw)
-        model.set_simulator(stride, pre_N, preruns)
+        model.set_simulator(stride=stride, pre_N=pre_N, preruns=preruns, use_imperfections=use_imperfections)
         model.set_normalizer(mean, std)
         model.build_default() 
         Backup.load_and_append_data(model, files, batchsize, max_points)
@@ -172,10 +174,10 @@ class Backup:
                 "use_background": imp.use_background,
 
                 "mkpi" : imp.mkpi,
-                "q2_min": imp.q2_min,
-                "q2_max" : imp.q2_max,
-                "mb_min" : imp.mb_min,
-                "mb_max" : imp.mb_max,
+                #"q2_min": imp.q2_min, # saved in the simulator
+                #"q2_max" : imp.q2_max,
+                #"mb_min" : imp.mb_min,
+                #"mb_max" : imp.mb_max,
                 "acceptance_coeffs_path" : str(imp.acceptance_coeffs_path),
                 "resolution_q2_sigma_core" : imp.resolution_q2_sigma_core,
                 "resolution_q2_sigma_tail" : imp.resolution_q2_sigma_tail,
@@ -289,6 +291,9 @@ class Backup:
 
         imperfections_cfg = save_dict.get("imperfections", None)
         use_imperfections = imperfections_cfg is not None
+        if imperfections_cfg is not None:
+            for k in ["q2_min", "q2_max", "mb_min", "mb_max"]: # these variables are already saved in the simulator, so we don't need to save them in the imperfections (and it can cause problems if given 2 times)
+                imperfections_cfg.pop(k, None)
         model.set_simulator(
                 use_imperfections=use_imperfections, 
                 imperfections_kwargs=imperfections_cfg,
@@ -461,3 +466,14 @@ class Backup:
             files = sorted(files_to_keep, key=Backup._extract_epoch)
 
             if real_epoch < epoch: break # early stopping detected
+
+
+    @staticmethod
+    def get_true_parameters_simulations_and_sampled_parameters(model : Model, data_files : list[Path], n_true : int, n_sampled_parameters : int) -> tuple[Tensor, Tensor, Tensor]:
+        raw_data, raw_true_parameters, _ = Backup.load_data(data_files, model.device)
+        raw_data = raw_data[:n_true, :model.n_points]
+        raw_true_parameters = raw_true_parameters[:n_true]
+        data = model.normalizer.normalize_data(raw_data)
+        true_parameters = model.normalizer.normalize_parameters(raw_true_parameters)
+        sampled_parameters = model.draw_parameters_from_predicted_posterior(data, n_sampled_parameters)
+        return true_parameters, data, sampled_parameters

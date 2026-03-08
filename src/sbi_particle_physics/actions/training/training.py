@@ -38,6 +38,8 @@ def main():
     parser.add_argument("--run-diagnostics", action="store_true")
     parser.add_argument("--n-diagnostic-files", type=int, default=5)
 
+    parser.add_argument("--use-imperfections", type=bool, default=False)
+
     args = parser.parse_args()
 
     id = args.training_id
@@ -46,7 +48,7 @@ def main():
     device = torch.device(args.device if args.device == "cuda" and torch.cuda.is_available() else "cpu")
     diagnostics_device = torch.device(args.diagnostics_device)
 
-    model = Backup.load_data_and_build_model(data_dir, device=device, batchsize=args.batchsize, stride=args.stride, pre_N=args.pre_n, preruns=args.preruns, seed=args.seed, max_files=args.max_files, max_points=args.points_per_sample)
+    model = Backup.load_data_and_build_model(data_dir, device=device, batchsize=args.batchsize, stride=args.stride, pre_N=args.pre_n, preruns=args.preruns, seed=args.seed, max_files=args.max_files, max_points=args.points_per_sample, use_imperfections=args.use_imperfections)
     print(f"Training {id} on device {device}")
     Backup.train_model_with_backups(model, stop_after_epochs=args.stop_after_epochs, max_epochs=args.max_epochs, directory=model_dir)
 
@@ -88,6 +90,13 @@ def main():
 
 # condor_q nrc25 -hold -af ClusterId ProcId HoldReason
 
+# training 2.0
+# 100 : ideal data, 20 samples, 10k points
+# 101 : imperfect data, 20 samples, 10k points
+# 102 : ideal data, 2000 samples, 10k points
+# 103 : imperfect data, 1000 samples, 10k points
+
+# python -m sbi_particle_physics.actions.training.training --training-id 102 --data-dir data_6 --max-files 2000 --device cpu
 
 if __name__ == "__main__":
     main()

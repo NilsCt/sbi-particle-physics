@@ -1,9 +1,9 @@
 executable = run_training.sh
 
 arguments = \
-  --training-id 30 \
-  --data-dir data_3 \
-  --max-files 100 \
+  --training-id 100 \
+  --data-dir data_6 \
+  --max-files 2000 \
   --device cpu
 # normalement max files est 400
 

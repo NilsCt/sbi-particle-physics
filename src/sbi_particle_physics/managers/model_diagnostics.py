@@ -506,9 +506,9 @@ class ModelDiagnostics:
 
         ModelDiagnostics.tarp_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "tarp.pdf")
 
-        ModelDiagnostics.misspecification_test(model, data[-1002:-2], x_o=data[-1], path=subdirectory / "miss.pdf")
+        ModelDiagnostics.misspecification_test(data[-1002:-2], x_o=data[-1], path=subdirectory / "miss.pdf")
 
-        ModelDiagnostics.misspecification_test_mmd(model, data[-1002:-2], x_o=data[-1], path=subdirectory / "mmmd.pdf")
+        ModelDiagnostics.misspecification_test_mmd(data[-1002:-2], x_o=data[-1], path=subdirectory / "mmmd.pdf")
         # only needs to be between 0.2->0.8 (model is wrong if <0.05)
 
         ModelDiagnostics.many_posteriors(model, parameter_component_index=0, x_min=3, x_max=5, path=subdirectory / "many.pdf") # component 0 of the parameters (C_9)

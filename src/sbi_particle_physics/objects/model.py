@@ -182,9 +182,7 @@ class Model:
     
     def simulate_raw_data(self, n_samples : int, n_points : int, from_prior : bool = False) -> tuple[Tensor, Tensor]: # can be used before initializing the normalizer
         raw_parameters = self.draw_raw_parameters(n_samples, from_prior=from_prior)
-        print(f"raw parameters shape {raw_parameters.shape}")
         x = self.simulator.simulate_samples(raw_parameters, n_points)
-        print(f"raw data shape {x.shape}")
         return x, raw_parameters
     
     def simulate_data(self, n_samples : int, n_points : int, from_prior : bool = False) -> tuple[Tensor, Tensor]:
@@ -196,7 +194,6 @@ class Model:
         raw_data = self.simulator.simulate_samples(raw_parameters, n_points)
         return self.normalizer.normalize_data(raw_data) 
     
-    @staticmethod
     def _extend_unique_paths(self, new: list[Path], proposal_round : int = None):
         prop = proposal_round if proposal_round is not None else self.round
         seen = set(e["path"] for e in self.data_files_paths)
@@ -208,8 +205,7 @@ class Model:
     @staticmethod
     def create_data_dict(path : Path, proposal_round : int = 0) -> dict:
         return {"path": path, "proposal_round": proposal_round}
-
-    @staticmethod 
+ 
     def export_paths(self) -> list[dict]:
         return [{"path" : str(e["path"]), "proposal_round": e["proposal_round"]} for e in self.data_files_paths]
 
@@ -221,7 +217,7 @@ class Model:
             proposal = self.proposals[-1]
         self.neural_network.append_simulations(parameters, data, proposal=proposal)
         if files is not None:
-            self._extend_unique_paths(files, proposal_round=proposal_round)
+            self._extend_unique_paths(new=files, proposal_round=proposal_round)
 
     def train(self, stop_after_epochs : int, max_num_epochs : int, resume_training : bool = False):  
         before = self.epoch # si ca marche pas il faut mettre len(validation_loss)

@@ -27,7 +27,9 @@ def main():
     directory = DATA_DIR / args.data_dir
     print(f"Generating data in {directory}, "f"start={args.start_index}, amount={args.amount}")
 
-    Backup.generate_many_data(model, directory=directory, start_index=args.start_index, amount=args.amount, n_samples=args.n_samples, n_points=args.n_points, prior_low_raw=[-1], prior_high_raw=[-1]) 
+    arbitrary_prior_limit = model.to_tensor([-1])
+
+    Backup.generate_many_data(model, directory=directory, start_index=args.start_index, amount=args.amount, n_samples=args.n_samples, n_points=args.n_points, prior_low_raw=arbitrary_prior_limit, prior_high_raw=arbitrary_prior_limit) 
     # prior_low_raw and prior_high_raw are just informative, here there value is meaningless
 
     # THIS ACTION DOES NOT ADD THE FILES TO THE MODEL (just data generation)

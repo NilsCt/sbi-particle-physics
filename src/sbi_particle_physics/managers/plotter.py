@@ -57,10 +57,13 @@ class Plotter:
         fig = Plotter._loss_lot(model, False)
         if file is None: fig.show()
         else: fig.savefig(f"{file}.png")
+        plt.close(fig)
         if len(model.training_loss) > 110 and len(model.validation_loss) > 110:
             fig2 = Plotter._loss_lot(model, True)
             if file is None: fig2.show()
             else: fig2.savefig(f"{file}_zoom.png")
+            plt.close(fig2)
+
 
 
     @staticmethod
@@ -154,7 +157,7 @@ class Plotter:
         colors = plt.cm.viridis(np.linspace(0, 1, n_samples_to_plot))
 
         # Create 4 subplots (one for each observable)
-        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+        fig, axes = plt.subplots(3, 2, figsize=(14, 10))
         axes = axes.flatten()
 
         for obs_idx, label in enumerate(DATA_LABELS):

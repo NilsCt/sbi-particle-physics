@@ -22,13 +22,14 @@ def main():
     parser.add_argument("--device", type=str, default="cpu")
     args = parser.parse_args()
 
-    model = Backup.load_model_for_inference_basic(directory=MODELS_DIR / args.model_dir, device=torch.device(args.device))
+    model = Backup.load_model_for_training_basic(directory=MODELS_DIR / args.model_dir, device=torch.device(args.device))
 
     raw_data, _ = RealData.load_n_points(REAL_DATA, model.n_points, device=model.device)
     
     model.SNPE_new_round(raw_data)
 
-    Backup.save_model(model, MODELS_DIR / args.new_model_dir) # doesn't save in the same directory
+    name = Backup._epoch_file_path(MODELS_DIR / args.new_model_dir, model.epoch)
+    Backup.save_model(model, name ) # doesn't save in the same directory
 
 if __name__ == "__main__":
     main()

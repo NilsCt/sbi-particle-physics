@@ -1,8 +1,8 @@
 import subprocess
 import time
 
-BASE_START_INDEX = 4945
-N_RUNS = 15
+BASE_START_INDEX = 6200
+N_RUNS = 70
 
 for i in range(N_RUNS):
     start_index = BASE_START_INDEX + i # attention il faut multiplier si je change amount aussi
