@@ -96,6 +96,14 @@ def main():
 # 102 : ideal data, 2000 samples, 10k points
 # 103 : imperfect data, 1000 samples, 10k points
 
+# 105 : ideal data, 100 samples, 10k points
+# 106 : imperfect data, 100 samples, 10k points
+
+# 200 : ideal data, 1000 samples, 1000 points
+# 201 : imperfect data, 1000 samples, 1000 points
+# 202 : ideal data, 1000 samples, 10000 points
+# 203 : imperfect data, 1000 samples, 10000 points
+
 # python -m sbi_particle_physics.actions.training.training --training-id 102 --data-dir data_6 --max-files 2000 --device cpu
 
 if __name__ == "__main__":

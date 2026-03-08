@@ -1,8 +1,8 @@
 import subprocess
 import time
 
-BASE_START_INDEX = 6200
-N_RUNS = 70
+BASE_START_INDEX = 6400
+N_RUNS = 20
 
 for i in range(N_RUNS):
     start_index = BASE_START_INDEX + i # attention il faut multiplier si je change amount aussi
@@ -31,7 +31,7 @@ for i in range(N_RUNS):
     if i < 20:
         time.sleep(60)
     else:
-        time.sleep(600)
+        time.sleep(60)
 
 # nice -n 19 nohup python nicest_data_generation.py &
 

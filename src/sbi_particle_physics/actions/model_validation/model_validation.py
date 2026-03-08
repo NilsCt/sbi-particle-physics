@@ -4,7 +4,8 @@ from sbi_particle_physics.objects.model import Model
 from sbi_particle_physics.managers.plotter import Plotter
 from sbi_particle_physics.managers.backup import Backup
 from sbi_particle_physics.managers.model_diagnostics import ModelDiagnostics
-from sbi_particle_physics.config import MODELS_DIR, DATA_DIR, PLOTS_DIR
+from sbi_particle_physics.config import MODELS_DIR, DATA_DIR, PLOTS_DIR, REAL_DATA
+from sbi_particle_physics.managers.real_data import RealData
 import argparse
 
 # ===== BATCH-SAFE MATPLOTLIB CONFIG =====
@@ -24,14 +25,19 @@ def main():
     parser.add_argument("--plot-dir", type=str, required=True)
     parser.add_argument("--number-data-files", type=int, default=5)
     parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--epoch", type=int, default=None)
     args = parser.parse_args()
 
-    model = Backup.load_model_for_inference_basic(directory=MODELS_DIR / args.model_dir, device=torch.device(args.device))
+    #model = Backup.load_model_for_inference_basic(directory=MODELS_DIR / args.model_dir, device=torch.device(args.device), epoch=args.epoch)
+    model = Backup.load_model_for_training_basic(directory=MODELS_DIR / args.model_dir, device=torch.device(args.device), epoch=args.epoch)
+    # necessary for the misspecification test with embedding space
 
     files = Backup.detect_files(DATA_DIR / args.data_dir)[-args.number_data_files-10:-10] # x last files (ignore 10 last files that can be bad because of testing)
     raw_data, raw_parameters, _ = Backup.load_data(files, model.device)
 
-    ModelDiagnostics.do_them_all(model, PLOTS_DIR / args.plot_dir, raw_data, raw_parameters)
+    real_data, _ = RealData.load_n_points(REAL_DATA, model.n_points, model.device)
+
+    ModelDiagnostics.do_them_all(model, PLOTS_DIR / args.plot_dir, raw_data, raw_parameters, real_data)
 
 if __name__ == "__main__":
     main()

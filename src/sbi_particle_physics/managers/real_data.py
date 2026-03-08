@@ -4,10 +4,11 @@ from torch import Tensor
 from pathlib import Path
 import uproot
 import awkward as ak
-from sbi_particle_physics.config import REAL_DATA_FILE_PATTERN, TREE_NAME, BRANCHES, MKPI, MKPI_DELTA
+from sbi_particle_physics.config import REAL_DATA_FILE_PATTERN, TREE_NAME, BRANCHES, MKPI, MKPI_DELTA, PLOTS_DIR, GREEN_COLOR, AXIS_FONTSIZE, TICK_FONTSIZE, LEGEND_FONTSIZE, PARAMETERS_LABEL, C9, DEFAULT_PRIOR_LOW, DEFAULT_PRIOR_HIGH
 import re
 from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
+from sbi_particle_physics.objects.model import Model
 
 class RealData:
     """
@@ -127,3 +128,25 @@ class RealData:
         if out.shape[0] < n_points:
             print(f"[RealData.load_n_points] Warning: requested {n_points} events but only found {out.shape[0]} after skipping {ignore_first}.")
         return out[:n_points], mkpi_out[:n_points]
+    
+    @staticmethod
+    def plot_real_data_posterior(model : Model, real_data : Tensor, n_samples : int = 1000, path : Path = None):
+        sampled_parameters = model.draw_parameters_from_predicted_posterior(real_data, n_parameters=n_samples).squeeze(0)
+        fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
+        ax.set_xlim(DEFAULT_PRIOR_LOW[0], DEFAULT_PRIOR_HIGH[0])
+        ax.hist(sampled_parameters[:,0], bins=40, density=True, alpha=0.8, color=GREEN_COLOR, label="posterior")
+        ax.axvline(C9, color="red", linestyle="--", linewidth=2, label="True value")
+        ax.set_xlabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE+8, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)  #, fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
+        leg.get_frame().set_linewidth(0.8)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor('white')
+        if path is None:
+            plt.show()
+        else:
+            plt.savefig(path)
+        plt.close()

@@ -19,6 +19,7 @@ from sbi.analysis import pairplot
 from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE, PLOTS_DIR, AXIS_FONTSIZE, GREEN_COLOR, RED_COLOR
 from sbi_particle_physics.managers.predictions import Predictions
 from pathlib import Path
+from sbi_particle_physics.managers.real_data import RealData
 
 class ModelDiagnostics:
     """
@@ -216,56 +217,7 @@ class ModelDiagnostics:
         return stats_2d.reshape(-1)
 
     @staticmethod
-    def misspecification_test(x_train: Tensor, x_o: Tensor, path : Path = None):
-        """
-        Misspecification Test
-        Model misspecification occurs when the true data-generating process
-        differs from the assumed model, such that no parameter value
-        can generate data consistent with the observations.
-
-        Misspecification leads to systematically biased or misleading posteriors.
-        """
-        # summaries: (N, 2, D) -> (N, 2D)
-        summaries = torch.stack([
-            ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
-            for x in x_train
-        ], dim=0)  # (N, 2D)
-
-        summary_o = ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x_o))  # (2D,)
-
-        # (optionnel mais utile) normaliser pour aider le flow
-        mu = summaries.mean(dim=0, keepdim=True)
-        std = summaries.std(dim=0, keepdim=True).clamp_min(1e-8)
-        summaries_z = (summaries - mu) / std
-        summary_o_z = (summary_o - mu.squeeze(0)) / std.squeeze(0)
-
-        trainer = MarginalTrainer(density_estimator="NSF")
-        trainer.append_samples(summaries_z)
-        est = trainer.train()
-
-        logp_train = est.log_prob(summaries_z).detach().cpu()
-        logp_obs = est.log_prob(summary_o_z.unsqueeze(0)).item()
-
-        p_value = (logp_train <= logp_obs).float().mean().item()
-        reject_H0 = p_value < 0.05
-
-        print(f"p-value: {p_value:.4f}, Reject H0 (misspecified): {reject_H0}")
-
-        plt.figure(figsize=(6, 4))
-        plt.hist(logp_train.numpy(), bins=50, alpha=0.6, label=r"$\log p(s(x))$")
-        plt.axvline(logp_obs, color="red", label=r"$\log p(s(x_o))$")
-        plt.xlabel(r"$\log p(s)$")
-        plt.ylabel("Count")
-        plt.legend()
-        plt.tight_layout()
-        if path is None:
-            plt.show()
-        else:
-            plt.savefig(path)
-
-
-    @staticmethod
-    def misspecification_test_mmd(x_train : Tensor, x_o : Tensor, path : Path = None):
+    def misspecification_test_mmd(x_train : Tensor, x_o : Tensor, path : Path = None, model : Model | None = None):
         """
         Misspecification Test using MMD
         Uses Maximum Mean Discrepancy (MMD) to measure the distance
@@ -275,20 +227,24 @@ class ModelDiagnostics:
         Large MMD values indicate model misspecification,
         i.e. the model cannot reproduce the observed data distribution.
         """
-        summaries = torch.stack([
-            ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
-            for x in x_train
-        ])
+        #summaries = torch.stack([
+        #    ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
+        #    for x in x_train
+        #])
 
-        summary_o = ModelDiagnostics._flatten_stats(
-            ModelDiagnostics._summary_stats(x_o)
-        ).unsqueeze(0)
+        #summary_o = ModelDiagnostics._flatten_stats(
+        #    ModelDiagnostics._summary_stats(x_o)
+        #)
 
+        mode = "x_space" if model is None else "embedding"
+        inference = None if model is None else model.neural_network
         p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
-            inference=None,
-            x_obs=summary_o,
-            x=summaries,
-            mode="x_space"
+            inference=inference,
+            x_obs=x_o.unsqueeze(0),
+            x=x_train,
+            mode=mode,
+            #n_shuffle=50,
+            #max_samples=100,
         )
         #p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
         #    inference=None,
@@ -309,7 +265,7 @@ class ModelDiagnostics:
             plt.savefig(path)
 
     @staticmethod
-    def many_posteriors(model : Model, parameter_component_index : int, x_min : int, x_max : int, n_cols: int = 6, n_rows: int = 5, bins: int = 40, figsize_per_plot=(3.0, 2.4), path : Path = None):
+    def many_posteriors(model : Model, true_parameters : Tensor, observed_samples : Tensor, parameter_component_index : int, x_min : int, x_max : int, n_cols: int = 6, n_rows: int = 5, bins: int = 40, figsize_per_plot=(3.0, 2.4), path : Path = None):
         """
         Plot many 1D posteriors in a grid to verify the accuracy of the predictions
         """
@@ -317,12 +273,14 @@ class ModelDiagnostics:
         n_points = model.n_points
         n_samples = 1000
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(figsize_per_plot[0] * n_cols, figsize_per_plot[1] * n_rows), squeeze=False,)
-
+        many_samples = model.draw_parameters_from_predicted_posterior(observed_samples, n_samples)
+        
         for i in range(n_plots):
             row = i // n_cols
             col = i % n_cols
             ax = axes[row, col]
-            true_parameter, _, samples = model.get_true_parameters_simulations_and_sampled_parameters(1, n_points, n_samples)
+            true_parameter = true_parameters[i]
+            samples = many_samples[i]
             ax.hist(samples[:,parameter_component_index], bins=bins, density=True, alpha=0.6, color="green")
             ax.set_xlim(x_min, x_max)
             ax.axvline(true_parameter[parameter_component_index], color="red", linestyle="--", linewidth=2)
@@ -361,7 +319,7 @@ class ModelDiagnostics:
         x_ref = model.normalizer.normalize_data(x_o_raw)
         posterior_ref = model.draw_parameters_from_predicted_posterior(x_ref, n_parameters=n_posterior_samples)
         mean_ref, _ = Predictions.calculate_estimator(posterior_ref)
-        prior_samples = model.prior.sample((n_posterior_samples,)).to(device)
+        prior_samples = model.draw_parameters(n_parameters=n_posterior_samples, from_prior=True).squeeze(-1)
         avg_widths = []
         info_gains = []
         log_contrs = []
@@ -439,7 +397,7 @@ class ModelDiagnostics:
         x_ref = model.normalizer.normalize_data(x_o_raw) # Reference (maximum points)
         posterior_ref = model.draw_parameters_from_predicted_posterior(x_ref, n_parameters=n_posterior_samples)
         mean_ref, _ = Predictions.calculate_estimator(posterior_ref)
-        prior_samples = model.prior.sample((n_posterior_samples,)).to(device)
+        prior_samples = model.draw_parameters(n_parameters=n_posterior_samples, from_prior=True).squeeze(-1)
         avg_widths = []
         info_gains = []
         log_contrs = []
@@ -493,12 +451,13 @@ class ModelDiagnostics:
 
 
     @staticmethod
-    def do_them_all(model : Model, subdirectory : Path, raw_data : Tensor, raw_parameters : Tensor, num_posterior_samples : int = 1000):
+    def do_them_all(model : Model, subdirectory : Path, raw_data : Tensor, raw_parameters : Tensor, real_raw_data : Tensor, num_posterior_samples : int = 1000):
         # sensitive to changes of the config
         subdirectory.mkdir(parents=True, exist_ok=True)
         
         data = model.normalizer.normalize_data(raw_data[:,:model.n_points])
         parameters = model.normalizer.normalize_parameters(raw_parameters[:,:model.n_points])
+        real_data = model.normalizer.normalize_data(real_raw_data[:model.n_points])
 
         ModelDiagnostics.simulation_based_calibration(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "sbc.pdf")
 
@@ -506,16 +465,17 @@ class ModelDiagnostics:
 
         ModelDiagnostics.tarp_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "tarp.pdf")
 
-        ModelDiagnostics.misspecification_test(data[-1002:-2], x_o=data[-1], path=subdirectory / "miss.pdf")
+        #ModelDiagnostics.misspecification_test_mmd(data[-50:-2], x_o=real_data, path=subdirectory / "miss_mmd.pdf")
 
-        ModelDiagnostics.misspecification_test_mmd(data[-1002:-2], x_o=data[-1], path=subdirectory / "mmmd.pdf")
-        # only needs to be between 0.2->0.8 (model is wrong if <0.05)
+        ModelDiagnostics.misspecification_test_mmd(data[-1000:-2], x_o=real_data, path=subdirectory / "miss_mmd_embedding.pdf", model=model)
 
-        ModelDiagnostics.many_posteriors(model, parameter_component_index=0, x_min=3, x_max=5, path=subdirectory / "many.pdf") # component 0 of the parameters (C_9)
+        RealData.plot_real_data_posterior(model, real_data, path=subdirectory / "real_posterior.pdf", n_samples=num_posterior_samples)
 
-        ModelDiagnostics.posterior_predictive_checks(model, x_o=data[-1], n_samples=200, n_points=model.n_points, path=subdirectory/ "ppc.pdf")
+        ModelDiagnostics.many_posteriors(model, true_parameters=parameters[-50:], observed_samples=data[-50:], parameter_component_index=0, x_min=3, x_max=5, path=subdirectory / "many.pdf") # component 0 of the parameters (C_9)
 
         deltas = np.linspace(0.0, 0.3, 15).tolist()
-        ModelDiagnostics.robustness_to_noise(model, x_o_raw=raw_data[-100:], n_posterior_samples=num_posterior_samples, deltas=deltas, path = subdirectory / "noise")
+        ModelDiagnostics.robustness_to_noise(model, x_o_raw=raw_data[-100:,:model.n_points], n_posterior_samples=num_posterior_samples, deltas=deltas, path = subdirectory / "noise")
 
-        ModelDiagnostics.robustness_to_npoints(model, x_o_raw=raw_data[-100:], n_posterior_samples=num_posterior_samples, use_random_subsample=False, number_of_ns=20, path = subdirectory / "npoints")
+        ModelDiagnostics.robustness_to_npoints(model, x_o_raw=raw_data[-100:,:model.n_points], n_posterior_samples=num_posterior_samples, use_random_subsample=False, number_of_ns=20, path = subdirectory / "npoints")
+        
+        ModelDiagnostics.posterior_predictive_checks(model, x_o=data[-1], n_samples=200, n_points=model.n_points, path=subdirectory/ "ppc.pdf")
