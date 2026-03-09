@@ -16,7 +16,7 @@ from sbi.diagnostics.misspecification import calc_misspecification_mmd
 from sbi.diagnostics.lc2st import LC2ST
 from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
-from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE, PLOTS_DIR, AXIS_FONTSIZE, GREEN_COLOR, RED_COLOR
+from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE, PLOTS_DIR, AXIS_FONTSIZE, GREEN_COLOR, RED_COLOR, REAL_DATA
 from sbi_particle_physics.managers.predictions import Predictions
 from pathlib import Path
 from sbi_particle_physics.managers.real_data import RealData
@@ -302,6 +302,7 @@ class ModelDiagnostics:
             fig.savefig(path)
 
 
+
     @staticmethod
     def robustness_to_noise(model: Model, x_o_raw: Tensor, n_posterior_samples: int = 1000, deltas: list[float] | None = None, path : Path = None):
         """
@@ -459,19 +460,21 @@ class ModelDiagnostics:
         parameters = model.normalizer.normalize_parameters(raw_parameters[:,:model.n_points])
         real_data = model.normalizer.normalize_data(real_raw_data[:model.n_points])
 
-        ModelDiagnostics.simulation_based_calibration(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "sbc.pdf")
-
         ModelDiagnostics.expected_coverage_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "ect.pdf")
 
         ModelDiagnostics.tarp_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "tarp.pdf")
 
-        #ModelDiagnostics.misspecification_test_mmd(data[-50:-2], x_o=real_data, path=subdirectory / "miss_mmd.pdf")
+                    #ModelDiagnostics.misspecification_test_mmd(data[-50:-2], x_o=real_data, path=subdirectory / "miss_mmd.pdf")
 
         ModelDiagnostics.misspecification_test_mmd(data[-1000:-2], x_o=real_data, path=subdirectory / "miss_mmd_embedding.pdf", model=model)
 
         RealData.plot_real_data_posterior(model, real_data, path=subdirectory / "real_posterior.pdf", n_samples=num_posterior_samples)
 
+        RealData.calculate_best_estimator(model=model, path_real_data=REAL_DATA, n_parameters=1000, n_subsamples=200, sample_with_replacement=False, path=subdirectory)
+
         ModelDiagnostics.many_posteriors(model, true_parameters=parameters[-50:], observed_samples=data[-50:], parameter_component_index=0, x_min=3, x_max=5, path=subdirectory / "many.pdf") # component 0 of the parameters (C_9)
+
+        ModelDiagnostics.simulation_based_calibration(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "sbc.pdf")
 
         deltas = np.linspace(0.0, 0.3, 15).tolist()
         ModelDiagnostics.robustness_to_noise(model, x_o_raw=raw_data[-100:,:model.n_points], n_posterior_samples=num_posterior_samples, deltas=deltas, path = subdirectory / "noise")

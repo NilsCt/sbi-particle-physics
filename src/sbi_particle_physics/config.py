@@ -3,7 +3,7 @@ import numpy as np
 
 # Project
 PROJECT_NAME = "sbi_particle_physics"
-PROJECT_VERSION = "0.5"
+PROJECT_VERSION = "0.9"
 
 DEFAULT_SEED = 42
 
@@ -92,8 +92,8 @@ DEFAULT_WEIGHT_DECAY = 0
 # Training
 DEFAULT_DATA_FILE_BATCH_SIZE = 1
 DEFAULT_MAX_FILES = 400
-DEFAULT_STOP_AFTER_EPOCH = 200
-DEFAULT_MAX_EPOCHS = 2000
+DEFAULT_STOP_AFTER_EPOCH = 1000 # very large to be sure to reach the convergence
+DEFAULT_MAX_EPOCHS = 5000 
 
 # Plots
 #AXIS_FONTSIZE = 26 # 1.2 tick size

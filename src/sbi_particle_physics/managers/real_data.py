@@ -9,6 +9,9 @@ import re
 from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 from sbi_particle_physics.objects.model import Model
+from sbi_particle_physics.managers.predictions import Predictions
+from typing import Any
+import math
 
 class RealData:
     """
@@ -132,6 +135,8 @@ class RealData:
     @staticmethod
     def plot_real_data_posterior(model : Model, real_data : Tensor, n_samples : int = 1000, path : Path = None):
         sampled_parameters = model.draw_parameters_from_predicted_posterior(real_data, n_parameters=n_samples).squeeze(0)
+        mean, uncertainty = Predictions.calculate_estimator(sampled_parameters)
+        print(f"Estimated mean: {mean}, Uncertainty: {uncertainty}")
         fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
         ax.set_xlim(DEFAULT_PRIOR_LOW[0], DEFAULT_PRIOR_HIGH[0])
         ax.hist(sampled_parameters[:,0], bins=40, density=True, alpha=0.8, color=GREEN_COLOR, label="posterior")
@@ -148,5 +153,246 @@ class RealData:
         if path is None:
             plt.show()
         else:
-            plt.savefig(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            plt.savefig(path.with_suffix(".pdf"))
         plt.close()
+
+    @staticmethod
+    def _save_or_show(path: Path | None) -> None:
+        if path is None:
+            plt.show()
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            plt.savefig(path.with_suffix(".pdf"))
+        plt.close()
+
+    @staticmethod
+    def _plot_subset_estimates(means: Tensor, sigmas: Tensor, final_mean: float, final_unc: float, path: Path | None = None, true_value: float | None = None) -> None:
+        fig, ax = plt.subplots(figsize=(5.5, 4), constrained_layout=True)
+        ax.hist(means.numpy(), bins=30, density=True, alpha=0.8, color=GREEN_COLOR, label="subset estimates")
+        ax.axvline(final_mean, color="black", linestyle="-", linewidth=2, label="final estimate")
+        ax.axvspan(final_mean - final_unc, final_mean + final_unc, alpha=0.20, color="gray", label=r"final $\pm 1\sigma$")
+        if true_value is not None:
+            ax.axvline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
+        ax.set_xlabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE + 8, labelpad=0)
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        RealData._save_or_show(path)
+
+    @staticmethod
+    def _plot_subset_errorbars(means: Tensor, sigmas: Tensor, final_mean: float, final_unc: float, path: Path | None = None, true_value: float | None = None) -> None:
+        fig, ax = plt.subplots(figsize=(6.0, 4), constrained_layout=True)
+        x = torch.arange(len(means)).numpy()
+        ax.errorbar(x, means.numpy(), yerr=sigmas.numpy(), fmt="o", alpha=0.75, markersize=3.5, linewidth=1.0, capsize=2.0, label="subset estimate")
+        ax.axhline(final_mean, color="black", linestyle="-", linewidth=2, label="final estimate")
+        ax.axhspan(final_mean - final_unc, final_mean + final_unc, alpha=0.20, color="gray", label=r"final $\pm 1\sigma$")
+        if true_value is not None:
+            ax.axhline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
+        ax.set_xlabel("Random subset index", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.set_ylabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE + 5, labelpad=0)
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="best")
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        RealData._save_or_show(path)
+
+    @staticmethod
+    def _plot_pulls(pulls: Tensor, path: Path | None = None) -> None:
+        fig, ax = plt.subplots(figsize=(5.5, 4), constrained_layout=True)
+        ax.hist(pulls.numpy(), bins=30, density=True, alpha=0.8, color=GREEN_COLOR, label="pulls")
+        ax.axvline(0.0, color="black", linestyle="-", linewidth=2, label="0")
+        ax.axvline(1.0, color="gray", linestyle="--", linewidth=1.5)
+        ax.axvline(-1.0, color="gray", linestyle="--", linewidth=1.5)
+        ax.set_xlabel(r"$(\hat{\theta}_i - \hat{\theta}_{\mathrm{final}})/\sigma_i$", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        RealData._save_or_show(path)
+
+    @staticmethod
+    def _plot_subset_uncertainties(sigmas: Tensor, path: Path | None = None) -> None:
+        fig, ax = plt.subplots(figsize=(5.5, 4), constrained_layout=True)
+        ax.hist(sigmas.numpy(), bins=30, density=True, alpha=0.8, color=GREEN_COLOR, label="subset uncertainties")
+        ax.axvline(torch.median(sigmas).item(), color="black", linestyle="-", linewidth=2, label="median")
+        ax.set_xlabel(r"Subset estimated uncertainty", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        RealData._save_or_show(path)
+
+    @staticmethod
+    def _plot_estimate_vs_uncertainty(means: Tensor, sigmas: Tensor, final_mean: float, path: Path | None = None, true_value: float | None = None) -> None:
+        fig, ax = plt.subplots(figsize=(5.5, 4), constrained_layout=True)
+        ax.scatter(sigmas.numpy(), means.numpy(), alpha=0.75, s=18, label="subsets")
+        ax.axhline(final_mean, color="black", linestyle="-", linewidth=2, label="final estimate")
+        if true_value is not None:
+            ax.axhline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
+        ax.set_xlabel(r"Subset estimated uncertainty", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.set_ylabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE + 5, labelpad=0)
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="best")
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        RealData._save_or_show(path)
+
+    @staticmethod
+    def _plot_cumulative_estimator(means: Tensor, sigmas: Tensor, path: Path | None = None, true_value: float | None = None) -> None:
+        weights = 1.0 / (sigmas ** 2)
+        cumulative_w = torch.cumsum(weights, dim=0)
+        cumulative_wm = torch.cumsum(weights * means, dim=0)
+        cumulative_mean = cumulative_wm / cumulative_w
+        cumulative_unc = torch.sqrt(1.0 / cumulative_w)
+
+        x = torch.arange(1, len(means) + 1).numpy()
+
+        fig, ax = plt.subplots(figsize=(6.0, 4), constrained_layout=True)
+        ax.plot(x, cumulative_mean.numpy(), linewidth=2, label="cumulative estimate")
+        ax.fill_between(
+            x,
+            (cumulative_mean - cumulative_unc).numpy(),
+            (cumulative_mean + cumulative_unc).numpy(),
+            alpha=0.20,
+            label=r"cumulative $\pm 1\sigma$",
+        )
+        if true_value is not None:
+            ax.axhline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
+        ax.set_xlabel("Number of subsets included", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.set_ylabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE + 5, labelpad=0)
+        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="best")
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        RealData._save_or_show(path)
+
+    @staticmethod
+    def calculate_best_estimator(model: Model, path_real_data: Path, n_parameters: int = 1000, n_subsamples: int = 200, sample_with_replacement: bool = False, path: Path | None = None) -> tuple[float, float]:
+        real_raw_data, _ = RealData.load_whole_directory(path_real_data, device=torch.device("cpu"))
+        real_raw_data = real_raw_data.to(torch.device("cpu"))
+        real_data = model.normalizer.normalize_data(real_raw_data)
+
+        n_total = real_data.shape[0]
+        n_points = model.n_points
+
+        if n_total == 0:
+            raise ValueError("real_data is empty.")
+        if n_total < n_points and not sample_with_replacement:
+            raise ValueError(f"Not enough data points ({n_total}) for subsets of size {n_points} without replacement.")
+
+        subset_means = []
+        subset_uncertainties = []
+
+        for _ in range(n_subsamples):
+            if sample_with_replacement:
+                idx = torch.randint(0, n_total, (n_points,))
+            else:
+                idx = torch.randperm(n_total)[:n_points]
+
+            subset = real_data[idx]
+            sampled_parameters = model.draw_parameters_from_predicted_posterior(
+                subset,
+                n_parameters=n_parameters,
+            )
+
+            if sampled_parameters.ndim >= 3 and sampled_parameters.shape[0] == 1:
+                sampled_parameters = sampled_parameters.squeeze(0)
+
+            mean_i, unc_i = Predictions.calculate_estimator(sampled_parameters)
+            mean_i = mean_i.detach().cpu().float()
+            unc_i = unc_i.detach().cpu().float()
+
+            if torch.isfinite(mean_i) and torch.isfinite(unc_i) and unc_i > 0:
+                subset_means.append(mean_i)
+                subset_uncertainties.append(unc_i)
+
+        if len(subset_means) == 0:
+            raise RuntimeError("No valid subset estimate could be computed.")
+
+        means = torch.stack(subset_means)
+        sigmas = torch.stack(subset_uncertainties)
+        n_valid = len(means)
+        weights = 1.0 / (sigmas ** 2)
+        final_mean = torch.sum(weights * means) / torch.sum(weights)
+        final_unc_stat = torch.sqrt(1.0 / torch.sum(weights))
+
+        if n_valid > 1:
+            subset_std = torch.std(means, unbiased=True)
+            chi2 = torch.sum(((means - final_mean) / sigmas) ** 2)
+            chi2_red = chi2 / (n_valid - 1)
+            birge_ratio = torch.sqrt(torch.clamp(chi2_red, min=1.0))
+            final_unc = final_unc_stat * birge_ratio
+            pulls = (means - final_mean) / sigmas
+            pull_mean = torch.mean(pulls)
+            pull_std = torch.std(pulls, unbiased=True)
+            frac_within_1sigma = torch.mean((torch.abs(pulls) <= 1.0).float())
+            frac_within_2sigma = torch.mean((torch.abs(pulls) <= 2.0).float())
+            q16 = torch.quantile(means, 0.16)
+            q84 = torch.quantile(means, 0.84)
+            robust_half_68 = 0.5 * (q84 - q16)
+        else:
+            subset_std = torch.tensor(0.0)
+            chi2_red = torch.tensor(float("nan"))
+            birge_ratio = torch.tensor(1.0)
+            final_unc = final_unc_stat
+            pulls = torch.zeros_like(means)
+            pull_mean = torch.tensor(0.0)
+            pull_std = torch.tensor(float("nan"))
+            frac_within_1sigma = torch.tensor(float("nan"))
+            frac_within_2sigma = torch.tensor(float("nan"))
+            robust_half_68 = torch.tensor(0.0)
+
+        print("\n===== Best estimator diagnostics =====")
+        print(f"Total real data points            : {n_total}")
+        print(f"Points per subset                 : {n_points}")
+        print(f"Requested random subsets          : {n_subsamples}")
+        print(f"Valid subsets                     : {n_valid}")
+        print(f"Fraction valid subsets            : {n_valid / n_subsamples:.3f}")
+        print()
+        print(f"Final estimate                    : {final_mean.item():.6g} ± {final_unc.item():.6g}")
+        print(f"Stat-only uncertainty             : {final_unc_stat.item():.6g}")
+        print()
+        print(f"Mean subset uncertainty           : {torch.mean(sigmas).item():.6g}")
+        print(f"Median subset uncertainty         : {torch.median(sigmas).item():.6g}")
+        print(f"Std of subset estimates           : {subset_std.item():.6g}")
+        print(f"Robust half central 68% width     : {robust_half_68.item():.6g}")
+        print()
+        print(f"Reduced chi2                      : {chi2_red.item():.6g}")
+        print(f"Birge ratio                       : {birge_ratio.item():.6g}")
+        print(f"Pull mean                         : {pull_mean.item():.6g}")
+        print(f"Pull std                          : {pull_std.item():.6g}")
+        print(f"Frac within 1 sigma               : {frac_within_1sigma.item():.3f}")
+        print(f"Frac within 2 sigma               : {frac_within_2sigma.item():.3f}")
+        print("=====================================\n")
+
+        if path is not None:
+            path.mkdir(parents=True, exist_ok=True)
+            RealData._plot_subset_estimates(means, sigmas, final_mean.item(), final_unc.item(), path / "best_estimator_subset_estimates", C9)
+            RealData._plot_subset_errorbars(means, sigmas, final_mean.item(), final_unc.item(), path / "best_estimator_subset_errorbars", C9)
+            RealData._plot_pulls(pulls, path / "best_estimator_pulls")
+            RealData._plot_subset_uncertainties(sigmas, path / "best_estimator_subset_uncertainties")
+            RealData._plot_estimate_vs_uncertainty(means, sigmas, final_mean.item(), path / "best_estimator_estimate_vs_uncertainty", C9)
+            RealData._plot_cumulative_estimator(means, sigmas, path / "best_estimator_cumulative_estimate", C9)
+        else:
+            RealData._plot_subset_estimates(means, sigmas, final_mean.item(), final_unc.item(), None, C9)
+            RealData._plot_subset_errorbars(means, sigmas, final_mean.item(), final_unc.item(), None, C9)
+            RealData._plot_pulls(pulls, None)
+            RealData._plot_subset_uncertainties(sigmas, None)
+            RealData._plot_estimate_vs_uncertainty(means, sigmas, final_mean.item(), None, C9)
+            RealData._plot_cumulative_estimator(means, sigmas, None, C9)
+
+        return final_mean.item(), final_unc.item()
