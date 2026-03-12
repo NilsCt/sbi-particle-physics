@@ -44,15 +44,16 @@ class Improvements:
     """
 
     @staticmethod
-    def _plot_width_by(x_values: np.ndarray | list, width: np.ndarray | list, x_label: str, curve_label : str) -> tuple[plt.Figure, plt.Axes, np.ndarray, np.ndarray]:
+    def _plot_width_by(x_values: np.ndarray | list, width: np.ndarray | list, x_label: str, curve_label : str, also_x_log : bool = True, no_line : bool = False) -> tuple[plt.Figure, plt.Axes, np.ndarray, np.ndarray]:
         x_values = np.array(x_values, dtype=float)
         width = np.array(width, dtype=float)
         order = np.argsort(x_values)
         x_values = x_values[order]
         width = width[order]
         fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
-        ax.plot(x_values, width, marker="o", linestyle="-", label=curve_label, linewidth=2.2, color=RED_COLOR)
-        ax.set_xscale("log")
+        linestyle = "" if no_line else "-"
+        ax.plot(x_values, width, marker="o", linestyle=linestyle, label=curve_label, linewidth=2.2, color=RED_COLOR)
+        if also_x_log: ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlabel(x_label, fontsize=AXIS_FONTSIZE+11, labelpad=0) # , fontweight='bold'
         ax.set_ylabel(r"Uncertainty", fontsize=AXIS_FONTSIZE-2, labelpad=0) # , fontweight='bold'
@@ -115,7 +116,7 @@ class Improvements:
         n_points_list = []
         avg_widths = []
         for model_dir in model_dirs:
-            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device, use_best=True)
             n_points = model.n_points
             observed_data = model.normalizer.normalize_data(raw_observed_data)
             posterior_samples = model.draw_parameters_from_predicted_posterior(observed_data[:,:n_points], n_parameters=n_posterior_samples)
@@ -145,10 +146,10 @@ class Improvements:
         fig, ax = plt.subplots(figsize=(7, 4))
         for model_dir in model_dirs:
             avg_widths = []
-            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device, use_best=True)
             n_points = model.n_points
             observed_data = model.normalizer.normalize_data(raw_observed_data)[:,:n_points]
-            na = np.linspace(n_points//2, n_points, 8, dtype=int) # don't go below n_points/2 or the nn won't be able to infere a posterior
+            na = np.linspace(n_points//1.5, n_points, 8, dtype=int) # don't go below n_points/2 or the nn won't be able to infere a posterior
             for n in na:
                 x_padded = torch.full(observed_data.shape, float('nan'), device=model.device)
                 x_padded[:,:n] = observed_data[:,:n]
@@ -183,7 +184,7 @@ class Improvements:
         n_files_list = []
         avg_widths = []
         for model_dir in model_dirs:
-            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model: Model = Backup.load_model_for_inference_basic(directory=model_dir, device=device, use_best=True)
             n_files = len(model.data_files_paths)
             observed_data = model.normalizer.normalize_data(raw_observed_data)
             posterior_samples = model.draw_parameters_from_predicted_posterior(observed_data, n_parameters=n_posterior_samples)
@@ -209,12 +210,12 @@ class Improvements:
         for file in files:
             model: Model = Backup.load_model_for_inference(file=file, device=device)
             n_epochs = model.epoch
-            observed_data = model.normalizer.normalize_data(raw_observed_data)
+            observed_data = model.normalizer.normalize_data(raw_observed_data[:,:model.n_points])
             posterior_samples = model.draw_parameters_from_predicted_posterior(observed_data, n_parameters=n_posterior_samples)
             avg_width = Predictions.average_uncertainty(posterior_samples)
             n_epochs_list.append(n_epochs)
             avg_widths.append(avg_width)
-        fig, ax, n_epochs_arr, avg_widths_arr = Improvements._plot_width_by(n_epochs_list, avg_widths, r"$n_{\mathrm{epochs}}$", "Neural network")
+        fig, ax, n_epochs_arr, avg_widths_arr = Improvements._plot_width_by(n_epochs_list, avg_widths, r"$n_{\mathrm{epochs}}$", "Neural network", also_x_log=False, no_line = True)
         fig.show()
         fig, ax = Improvements._plot_width_by_quantify(n_epochs_list, avg_widths, r"$1/n_{\mathrm{epochs}}$", "Neural network", ignore_n_first_points=ignore_n_first_points)
         fig.show()
@@ -303,7 +304,7 @@ class Improvements:
         robust_worst_ratio = []
         robust_quantile_ratio = []
         for model_dir in model_dirs:
-            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device, use_best=True)
             name = model_dir.name
             model_names.append(name)
             observed_data = model.normalizer.normalize_data(raw_observed_data)
@@ -380,7 +381,7 @@ class Improvements:
             x_o = raw_observed_data
         fig, (ax_drift, ax_width) = plt.subplots(1, 2, figsize=(12, 4), sharex=True)
         for model_dir in model_dirs:
-            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device, use_best=True)
             model_name = model_dir.name
             x_base = model.normalizer.normalize_data(x_o) # this time, noise is added after normalization
             posterior_ref = model.draw_parameters_from_predicted_posterior(x_base, n_parameters=n_posterior_samples)
@@ -443,7 +444,7 @@ class Improvements:
         B, N_max, D = x_o.shape
         fig, (ax_drift, ax_width) = plt.subplots(1, 2, figsize=(12, 4), sharex=True)
         for model_dir in model_dirs:
-            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device, use_best=True)
             model_name = model_dir.name
             x_ref = model.normalizer.normalize_data(x_o)
             posterior_ref = model.draw_parameters_from_predicted_posterior(x_ref, n_parameters=n_posterior_samples)
@@ -452,7 +453,7 @@ class Improvements:
             widths = []
             effective_ns = n_points_list
             if effective_ns is None:
-                effective_ns = np.linspace(N_max//2, N_max, default_number_ns, dtype=int)
+                effective_ns = np.linspace(N_max//1.5, N_max, default_number_ns, dtype=int)
             for n in effective_ns:
                 n = max(min(int(n), N_max), 1)
                 x_pad = torch.full_like(x_o, float("nan"), device=device) # Pad missing points with NaNs
@@ -489,7 +490,7 @@ class Improvements:
         fig, ax_drift = plt.subplots(figsize=(5.5,4), constrained_layout=True)
         i = 0
         for model_dir in model_dirs:
-            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device)
+            model = Backup.load_model_for_inference_basic(directory=model_dir, device=device, use_best=True)
             model_name = model_dir.name
             x_base = model.normalizer.normalize_data(x_o) # this time, noise is added after normalization
             posterior_ref = model.draw_parameters_from_predicted_posterior(x_base, n_parameters=n_posterior_samples)

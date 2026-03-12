@@ -105,34 +105,41 @@ def main():
 # 203 : imperfect data, 1000 samples, 10000 points
 
 # Imperfect data:
-# 300 : 30 samples, 10k points
+#   300 : 30 samples, 10k points
 # 301 : 50 samples, 10k points
-# 302 : 80 samples, 10k points
+#       302 : 80 samples, 10k points
 # 303 : 100 samples, 10k points
 # 304 : 200 samples, 10k points
 # 305 : 400 samples, 10k points
 # 306 : 500 samples, 10k points
 # 307 : 800 samples, 10k points
 # 308 : 1000 samples, 10k points
+# 309 : 1500 samples, 10k points
 
-# 330 : 1000 samples, 100 points
-# 331 : 1000 samples, 300 points
-# 332 : 1000 samples, 500 points
-# 333 : 1000 samples, 800 points
-# 334 : 1000 samples, 1k points
-# 335 : 1000 samples, 2k points
-# 336 : 1000 samples, 4k points
-# 337 : 1000 samples, 5k points
-# 338 : 1000 samples, 8k points
+#       330 : 1000 samples, 100 points
+#       331 : 1000 samples, 300 points
+#       332 : 1000 samples, 500 points
+#       333 : 1000 samples, 800 points
+#       334 : 1000 samples, 1k points
+#       335 : 1000 samples, 2k points
+#       336 : 1000 samples, 4k points
+#       337 : 1000 samples, 5k points
+#       338 : 1000 samples, 8k points
 # 339 : 1000 samples, 10k points
 
-# 360 : 1000 samples, 10k points, ReLU
-# 361 : 1000 samples, 10k points, GeLU <-----
+# 360 : 1000 samples, 10k points, ReLU, same as 339, 308, 203: the best one is 339
+# 361 : 1000 samples, 10k points, GeLU
 # 362 : 1000 samples, 10k points, SiLU
+# 363 : 1000 samples, 10k points, 5 NSF layers
+# 364 : 1000 samples, 10k points, 20 NSF layers
 # more/less neurons, layers?
 
-# nice -n 19 nohup python -m sbi_particle_physics.actions.training.training --training-id 300 --data-dir data_7 --device cpu --use-imperfections True --max-files 30 --points-per-sample 10000 &
+# 380 : 1000 samples, 1.5k points, many backup files ...
 
+# 400s final version
+
+# nice -n 19 nohup python -m sbi_particle_physics.actions.training.training --training-id 300 --data-dir data_7 --device cpu --use-imperfections True --max-files 30 --points-per-sample 10000 &
+# nice -n 19 nohup python -m sbi_particle_physics.actions.resume_training.resume_training --training-id 339 --device cpu &
 
 # python -m sbi_particle_physics.actions.training.training --training-id 102 --data-dir data_6 --max-files 2000 --device cpu
 

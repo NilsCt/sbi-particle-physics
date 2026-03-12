@@ -406,10 +406,17 @@ class Backup:
     def get_best_backup_file(model : Model, directory : Path) -> Path:
         best_epoch = model.best_val_epoch
         return Backup._get_corresponding_file(directory, best_epoch)
+
+    @staticmethod
+    def _deduce_best_backup_file(directory : Path) -> Path:
+        return Backup.get_all_backup_files(directory)[0]
     
     @staticmethod
-    def load_model_for_inference_basic(directory : Path, device : torch.device, epoch : int | None = None) -> Model: # useful method to load more easily a model
-        file  = Backup._get_corresponding_file(directory, epoch)
+    def load_model_for_inference_basic(directory : Path, device : torch.device, epoch : int | None = None, use_best : bool = False) -> Model: # useful method to load more easily a model
+        if use_best:
+            file = Backup._deduce_best_backup_file(directory)
+        else:
+            file = Backup._get_corresponding_file(directory, epoch)
         return Backup.load_model_for_inference(file, device)
 
     @staticmethod
