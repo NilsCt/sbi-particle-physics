@@ -24,6 +24,7 @@ KEEP_LAST_N_BACKUPS = 2
 # Data / Parameters 
 C9_SM = 4.27 # theorical C_9
 C9 = C9_SM - 0.7 # empirical C_9
+#C9 = 3.822
 C9_UNCERTAINTY = 0.2 # 0.2-0.3
 DATA_LABELS = ["$q^2$", r"$\cos \theta_\ell$", r"$\cos \theta_K$", r"$\phi$", r"$m_B$"]
 ENCODED_DATA_LABELS = ["$q^2$", "$\\cos \\theta_\\ell$", "$\\cos \\theta_K$", "$\\cos \\phi$", "$\\sin \\phi$", "$m_B$"]
@@ -92,7 +93,7 @@ DEFAULT_WEIGHT_DECAY = 0
 # Training
 DEFAULT_DATA_FILE_BATCH_SIZE = 1
 DEFAULT_MAX_FILES = 400
-DEFAULT_STOP_AFTER_EPOCH = 5000 # very large to be sure to reach the convergence
+DEFAULT_STOP_AFTER_EPOCH = 200 #5000 # very large to be sure to reach the convergence
 DEFAULT_MAX_EPOCHS = 10000 
 
 # Plots
@@ -100,19 +101,21 @@ DEFAULT_MAX_EPOCHS = 10000
 #LEGEND_FONTSIZE = 20 # tick size
 #TICK_FONTSIZE = 20 
 
-AXIS_FONTSIZE = 25 # 1.2 tick size
+AXIS_FONTSIZE = 26 # 1.2 tick size
 LEGEND_FONTSIZE = 15 #20 # tick size 
 #AXIS_FONTSIZE = 30 # 1.2 tick size
 #LEGEND_FONTSIZE = 24 # tick size
-TICK_FONTSIZE = 22
+TICK_FONTSIZE = 24
 
 GREEN_COLOR = "#166d12"
 RED_COLOR = "#b22222"
+BLUE_COLOR = "#255a85"
 PLOT_COLORS = [
     GREEN_COLOR,  # vert principal
     RED_COLOR,   # rouge sombre (si besoin accent)
-    "#255a85",  # bleu profond
-    "#5a2d82",  # violet
+    BLUE_COLOR,  # bleu profond
+    "#5a2d82",  # violet,
+    "#000000"
 ]
 
 # Imperfections

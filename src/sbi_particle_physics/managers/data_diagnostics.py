@@ -4,7 +4,7 @@ from torch import Tensor
 from sbi_particle_physics.objects.model import Model
 from sbi_particle_physics.managers.plotter import Plotter
 import numpy as np
-from sbi_particle_physics.config import AXIS_FONTSIZE, LEGEND_FONTSIZE, TICK_FONTSIZE, ENCODED_DATA_LABELS
+from sbi_particle_physics.config import AXIS_FONTSIZE, LEGEND_FONTSIZE, RED_COLOR, TICK_FONTSIZE, ENCODED_DATA_LABELS, PLOTS_DIR
 
 
 class DataDiagnostics:
@@ -79,19 +79,23 @@ class DataDiagnostics:
         d, max_lag = mean_ac.shape
         for i in range(d):
             plt.figure(figsize=(6,4))
-            plt.plot(mean_ac[i,0:lag_zoom], label="mean")
+            plt.plot(mean_ac[i,0:lag_zoom], label="Mean", color=RED_COLOR, linewidth=2.5)
             plt.fill_between(
                 range(max_lag)[0:lag_zoom],
                 mean_ac[i,0:lag_zoom] - std_ac[i,0:lag_zoom],
                 mean_ac[i,0:lag_zoom] + std_ac[i,0:lag_zoom],
-                alpha=0.3
+                alpha=0.3,
+                color=RED_COLOR,
+                label="$1\sigma$"
             )
-            plt.axhline(0, color="black", lw=0.5)
-            plt.title(ENCODED_DATA_LABELS[i], fontsize=AXIS_FONTSIZE)
-            plt.xlabel("Lag", fontsize=AXIS_FONTSIZE)
-            plt.ylabel("$\\rho$", fontsize=AXIS_FONTSIZE)
+            #plt.axhline(0, color="black", lw=0.5)
+            #plt.title(ENCODED_DATA_LABELS[i], fontsize=AXIS_FONTSIZE)
+            plt.xlabel("Lag $k$", fontsize=AXIS_FONTSIZE+2)
+            plt.ylabel("Correlation $q^2$", fontsize=AXIS_FONTSIZE+2)
+            plt.gca().tick_params(axis='both', labelsize=TICK_FONTSIZE-5)
             plt.grid(alpha=0.3)
-            plt.legend(fontsize=LEGEND_FONTSIZE)
+            plt.legend(fontsize=LEGEND_FONTSIZE+7)
+            plt.savefig(PLOTS_DIR / "viva" / "autocorr_{}.pdf".format(ENCODED_DATA_LABELS[i]))
             plt.show()
 
         ess_per_obs = [

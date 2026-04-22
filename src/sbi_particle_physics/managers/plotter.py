@@ -4,7 +4,7 @@ from sbi_particle_physics.objects.model import Model
 import numpy as np
 from torch import Tensor
 from sbi.inference import NPE
-from sbi_particle_physics.config import AXIS_FONTSIZE, ENCODED_DATA_LABELS, LEGEND_FONTSIZE, TICK_FONTSIZE, DATA_LABELS, PARAMETERS_LABEL, GREEN_COLOR, PLOTS_DIR
+from sbi_particle_physics.config import AXIS_FONTSIZE, BLUE_COLOR, ENCODED_DATA_LABELS, LEGEND_FONTSIZE, RED_COLOR, TICK_FONTSIZE, DATA_LABELS, PARAMETERS_LABEL, GREEN_COLOR, PLOTS_DIR
 
 class Plotter:
     """
@@ -14,16 +14,17 @@ class Plotter:
     @staticmethod
     def plot_a_sample_1D(sample : Tensor, parameter : Tensor, label : str):
         fig, ax = plt.subplots(figsize=(5.5,4)) # , constrained_layout=True
-        ax.hist(sample, bins=40, alpha=0.8,label=f"$C_9={parameter.item():.3f}$", density=True)
-        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE+14, labelpad=0) # , fontweight='bold'
-        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0) # , fontweight='bold'
-        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        labelo = "background" # f"$C_9={parameter.item():.3f}$"
+        ax.hist(sample, bins=40, alpha=1,label=labelo, density=True, color=RED_COLOR)
+        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE+5, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE+2, labelpad=0) # , fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE-1, width=1.2)
         ax.locator_params(nbins=4)
         ax.grid(True, alpha=0.4, linewidth=0.8)
         leg = ax.legend(fontsize=LEGEND_FONTSIZE+5, frameon=True, framealpha=0.55, borderpad=0.4, labelspacing=0.3)
         leg.get_frame().set_linewidth(0.7)
         leg.get_frame().set_facecolor('white')
-        plt.savefig(PLOTS_DIR / "poster" / "image_q2.svg")
+        plt.savefig(PLOTS_DIR / "viva" / f"background_{label.replace('\\','_')}.pdf")
         plt.show()
 
     @staticmethod
@@ -41,12 +42,15 @@ class Plotter:
             values1 = values1[100:] # removes the 100 first epochs to focus on the last small improvements
             values2 = values2[100:]
         fig, ax = plt.subplots(figsize=(8,3))
-        ax.plot(range(1, len(values1)+1), values1, label="Training")
-        ax.plot(range(1, len(values2)+1), values2, label="Validation")
-        ax.set_xlabel("Epoch", fontsize=AXIS_FONTSIZE)
-        ax.set_ylabel("Loss", fontsize=AXIS_FONTSIZE)
-        ax.legend(fontsize=LEGEND_FONTSIZE)
-        ax.tick_params(labelsize=TICK_FONTSIZE)
+        ax.plot(range(1, len(values1)+1), values1, label="Training loss", color="blue", lw=2.3)
+        ax.plot(range(1, len(values2)+1), values2, label="Validation loss", color="red", lw=2.3)
+        plt.rcParams["font.family"] = "serif"
+        plt.rcParams["font.serif"] = ["Computer Modern Roman"]
+        plt.rcParams["mathtext.fontset"] = "cm"
+        ax.set_xlabel("Epoch", fontsize=AXIS_FONTSIZE-1)
+        ax.set_ylabel("Loss", fontsize=AXIS_FONTSIZE-1)
+        ax.legend(fontsize=LEGEND_FONTSIZE+1)
+        ax.tick_params(labelsize=TICK_FONTSIZE-1)
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
         return fig
@@ -68,25 +72,25 @@ class Plotter:
 
     @staticmethod
     def plot_a_posterior_parameter(sampled_parameters : Tensor, label : str, true_value : float, range : tuple[float,float] = (None, None)):
-        fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
+        fig, ax = plt.subplots(figsize=(5,4), constrained_layout=True)
         ax.hist(
             sampled_parameters,
             bins=40,
             density=True,
-            alpha=0.8,
+            alpha=0.6,
             color=GREEN_COLOR,
-            label="posterior"
+            label="Posterior"
         )
         if range[0] is not None and range[1] is not None:
             ax.set_xlim(range[0], range[1])
-        ax.axvline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
-        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE+8, labelpad=0) # , fontweight='bold'
-        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)  #, fontweight='bold'
-        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.axvline(true_value, color="red", linestyle="--", linewidth=2.5, label="True value")
+        ax.set_xlabel(label, fontsize=AXIS_FONTSIZE+7, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE+3, labelpad=0)  #, fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE-2, width=1.2)
         ax.locator_params(nbins=4)
         ax.grid(True, alpha=0.4, linewidth=0.8)
         leg = ax.legend(
-            fontsize=LEGEND_FONTSIZE,
+            fontsize=LEGEND_FONTSIZE+5,
             frameon=True,
             framealpha=0.55,
             handlelength=1.3,
@@ -94,12 +98,11 @@ class Plotter:
             handletextpad=0.4,
             borderpad=0.3,
             labelspacing=0.2,
-            loc="upper left"
         )
         leg.get_frame().set_linewidth(0.8)
         leg.get_frame().set_linewidth(0.7)
         leg.get_frame().set_facecolor('white')
-        plt.savefig(PLOTS_DIR / "poster" / "image_posterior.svg")
+        plt.savefig(PLOTS_DIR / "viva" / "posterior.pdf")
         plt.show()
 
     @staticmethod
@@ -188,9 +191,9 @@ class Plotter:
 
     @staticmethod
     def poster_plot():
-        plt.rcParams['font.family'] = 'Arial'
-        plt.rcParams['font.weight'] = 'medium'
-        plt.rcParams['axes.prop_cycle'] = plt.cycler(color=["#9e3f00","#1f5d8c", "#2b8c6b","#6a3d9a"])
+        #plt.rcParams['font.family'] = 'Arial'
+        #plt.rcParams['font.weight'] = 'medium'
+        #plt.rcParams['axes.prop_cycle'] = plt.cycler(color=["#9e3f00","#1f5d8c", "#2b8c6b","#6a3d9a"])
         fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
         ax.plot([0,1], [0,1], linestyle="--", label="Ideal posterior", linewidth=2.2)
         ax.plot([0,1], [0.5,0.5], linestyle="--", linewidth=2.2)

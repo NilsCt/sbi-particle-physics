@@ -16,7 +16,7 @@ from sbi.diagnostics.misspecification import calc_misspecification_mmd
 from sbi.diagnostics.lc2st import LC2ST
 from sbi.analysis.plot import pp_plot_lc2st
 from sbi.analysis import pairplot
-from sbi_particle_physics.config import LEGEND_FONTSIZE, TICK_FONTSIZE, PLOTS_DIR, AXIS_FONTSIZE, GREEN_COLOR, RED_COLOR, REAL_DATA
+from sbi_particle_physics.config import BLUE_COLOR, LEGEND_FONTSIZE, TICK_FONTSIZE, PLOTS_DIR, AXIS_FONTSIZE, GREEN_COLOR, RED_COLOR, REAL_DATA
 from sbi_particle_physics.managers.predictions import Predictions
 from pathlib import Path
 from sbi_particle_physics.managers.real_data import RealData
@@ -28,31 +28,60 @@ class ModelDiagnostics:
     """
 
     @staticmethod
-    def simulation_based_calibration(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int, path : Path = None):
+    def simulation_based_calibration(model: Model, x: Tensor, theta: Tensor, num_posterior_samples: int, path: Path = None):
         """
         Simulation-Based Calibration (SBC)
-        Generates parameters θ_i from the prior, simulates data x_i ~ p(x | θ_i),
-        infers posteriors p(θ | x_i), and evaluates the rank of θ_i within each posterior.
 
-        The distribution of ranks should be uniform.
-        Uniform rank histograms, KS tests, and χ² tests are used to detect
-        systematic bias and posterior over- or under-confidence.
+        Draws simulated parameter-data pairs (theta_i, x_i), infers the posterior
+        p(theta | x_i), and computes the rank of the true parameter theta_i among
+        posterior samples.
+
+        If the posterior is well calibrated, the rank histogram should be close to
+        uniform for each parameter. Systematic deviations indicate posterior bias,
+        overconfidence, or underconfidence.
         """
-        # x, theta = model.simulate_data(n_samples, n_points)
         ranks, dap_samples = run_sbc(
             theta,
             x,
             model.posterior,
             num_posterior_samples=num_posterior_samples,
-            use_batched_sampling=False,  # `True` can give speed-ups, but can cause memory issues.
+            use_batched_sampling=False,
             num_workers=4,
         )
+
         fig, ax = sbc_rank_plot(
             ranks,
             num_posterior_samples,
             num_bins=20,
-            figsize=(5, 3),
+            figsize=(5.5, 4),
+            plot_type="cdf",
         )
+        for line in ax.get_lines():
+            line.set_color(RED_COLOR)
+            line.set_linewidth(2.2)
+        for coll in ax.collections:
+            coll.set_facecolor(GREEN_COLOR)
+            coll.set_edgecolor(GREEN_COLOR)
+            coll.set_alpha(0.35)
+        ax.set_xlabel("Rank", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.set_ylabel("Count", fontsize=AXIS_FONTSIZE, labelpad=0)
+        ax.tick_params(axis="both", which="major", labelsize=TICK_FONTSIZE - 4, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(
+            fontsize=LEGEND_FONTSIZE - 3,
+            frameon=True,
+            framealpha=0.55,
+            handlelength=1.3,
+            handleheight=0.6,
+            handletextpad=0.4,
+            borderpad=0.3,
+            labelspacing=0.2,
+        )
+        if leg is not None:
+            leg.get_frame().set_linewidth(0.7)
+            leg.get_frame().set_facecolor("white")
+        plt.tight_layout()
         if path is None:
             fig.show()
         else:
@@ -154,9 +183,9 @@ class ModelDiagnostics:
         for coll in ax.collections:
             coll.set_facecolor(GREEN_COLOR)   # ta couleur
             coll.set_alpha(0.4)  
-        ax.set_xlabel("Nominal level", fontsize=AXIS_FONTSIZE-3, labelpad=0) # , fontweight='bold'
-        ax.set_ylabel("Empirical coverage", fontsize=AXIS_FONTSIZE-2, labelpad=0) # , fontweight='bold'
-        ax.tick_params(labelsize=TICK_FONTSIZE-2, width=1.2)
+        ax.set_xlabel("Nominal level", fontsize=AXIS_FONTSIZE-2, labelpad=0) # , fontweight='bold'
+        ax.set_ylabel("Empirical coverage", fontsize=AXIS_FONTSIZE-3, labelpad=0) # , fontweight='bold'
+        ax.tick_params(labelsize=TICK_FONTSIZE-6, width=1.2)
         ax.locator_params(nbins=4)
         ax.grid(True, alpha=0.4, linewidth=0.8)
         leg = ax.legend(
@@ -179,7 +208,16 @@ class ModelDiagnostics:
             fig.savefig(path)
 
     @staticmethod
-    def tarp_test(model : Model, x : Tensor, theta : Tensor, num_posterior_samples : int, path : Path = None):
+    def tarp_test(model, x, theta, num_posterior_samples: int, path=None):
+        ecp, alpha = run_tarp(
+            theta,
+            x,
+            model.posterior,
+            references=None,
+            num_posterior_samples=num_posterior_samples,
+            use_batched_sampling=False,
+            num_workers=4,
+        )
         """
         TARP Test
         Generates parameters θ_i, simulates data x_i ~ p(x | θ_i),
@@ -190,23 +228,31 @@ class ModelDiagnostics:
         Deviations indicate bias or miscalibration of the posterior.
         """
         # the tarp method returns the ECP values for a given set of alpha coverage levels.
-        ecp, alpha = run_tarp(
-            theta,
-            x,
-            model.posterior,
-            references=None,  # will be calculated automatically.
-            num_posterior_samples=num_posterior_samples,
-            use_batched_sampling=False,  # `True` can give speed-ups, but can cause memory issues.
-            num_workers=4,
-        )
-        # Similar to SBC, we can check then check whether the distribution of ecp is close to
-        # that of alpha.
         atc, ks_pval = check_tarp(ecp, alpha)
-        print(atc, "Should be close to 0")
-        print(ks_pval, "Should be larger than 0.05")
+        print("ATC:", atc, "(should be close to 0)")
+        print("KS p-value:", ks_pval, "(should be > 0.05)")
+
         fig, ax = plot_tarp(ecp, alpha)
+        ax.set_xlabel("Ideal coverage", fontsize=AXIS_FONTSIZE+2)
+        ax.set_ylabel("Expected coverage", fontsize=AXIS_FONTSIZE+2)
+        ax.tick_params(axis="both", which="major", labelsize=TICK_FONTSIZE-2, width=1.2)
+        ax.grid(True, alpha=0.35, linewidth=0.8)
+        lines = ax.get_lines()
+        if len(lines) >= 1:
+            lines[0].set_color(RED_COLOR)
+            lines[0].set_linewidth(2.5)
+            lines[0].set_label("TARP")
+        if len(lines) >= 2:
+            lines[1].set_color(BLUE_COLOR)
+            lines[1].set_linestyle("--")
+            lines[1].set_linewidth(1.6)
+            lines[1].set_label("Ideal")
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE+7, frameon=True, framealpha=0.55, handlelength=1.4, handletextpad=0.4, borderpad=0.3, labelspacing=0.25)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        plt.tight_layout()
         if path is None:
-            fig.show()
+            plt.show()
         else:
             fig.savefig(path)
 
@@ -217,25 +263,20 @@ class ModelDiagnostics:
         return stats_2d.reshape(-1)
 
     @staticmethod
-    def misspecification_test_mmd(x_train : Tensor, x_o : Tensor, path : Path = None, model : Model | None = None):
+    def misspecification_test_mmd(x_train: Tensor, x_o: Tensor, path: Path = None, model: Model | None = None):
         """
-        Misspecification Test using MMD
-        Uses Maximum Mean Discrepancy (MMD) to measure the distance
-        between the distribution of observed data and data simulated
-        from the inferred posterior predictive distribution.
+        Misspecification test based on Maximum Mean Discrepancy (MMD).
 
-        Large MMD values indicate model misspecification,
-        i.e. the model cannot reproduce the observed data distribution.
+        Compares the observed dataset x_o to the reference distribution defined by
+        x_train using an MMD two-sample test. The comparison can be performed
+        directly in data space ("x_space") or in the learned neural embedding
+        ("embedding") when a model is provided.
+
+        A large observed MMD relative to the baseline distribution leads to a small
+        p-value and suggests model misspecification, i.e. that the observed data are
+        unlikely to have been generated by the same distribution as the training
+        simulations under the chosen representation.
         """
-        #summaries = torch.stack([
-        #    ModelDiagnostics._flatten_stats(ModelDiagnostics._summary_stats(x))
-        #    for x in x_train
-        #])
-
-        #summary_o = ModelDiagnostics._flatten_stats(
-        #    ModelDiagnostics._summary_stats(x_o)
-        #)
-
         mode = "x_space" if model is None else "embedding"
         inference = None if model is None else model.neural_network
         p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
@@ -243,22 +284,24 @@ class ModelDiagnostics:
             x_obs=x_o.unsqueeze(0),
             x=x_train,
             mode=mode,
-            #n_shuffle=50,
-            #max_samples=100,
+            # n_shuffle=50,
+            # max_samples=100,
         )
-        #p_val, (mmds_baseline, mmd) = calc_misspecification_mmd(
-        #    inference=None,
-        #    x_obs=x_o.unsqueeze(0),
-        #    x=x_train,
-        #    mode="x_space"
-        #)
-        print("MMD p-value:", p_val) # needs to be larger than 0.05 to be sure there is no missspecification
-        plt.figure(figsize=(6, 4), dpi=80)
-        plt.hist(mmds_baseline.numpy(), bins=50, alpha=0.5, label="baseline")
-        plt.axvline(mmd.item(), color="k", label=r"MMD(x, $x_o$)")
-        plt.ylabel("Count")
-        plt.xlabel("MMD")
-        plt.legend()
+        print("MMD p-value:", p_val)  # should typically be > 0.05 to avoid evidence for misspecification
+
+        plt.figure(figsize=(5.5, 4), dpi=80)
+        plt.hist(mmds_baseline.detach().cpu().numpy(), bins=50, alpha=0.4, color="blue", label="Simulator fluctuations")
+        plt.axvline(mmd.item(), color="red", linewidth=2.5, label=r"Observed MMD")
+        ax = plt.gca()
+        ax.set_xlabel("MMD", fontsize=AXIS_FONTSIZE -3, labelpad=0)
+        ax.set_ylabel("Count", fontsize=AXIS_FONTSIZE -3, labelpad=0)
+        ax.tick_params(axis="both", which="major", labelsize=TICK_FONTSIZE - 7, width=1.2)
+        ax.locator_params(nbins=4)
+        ax.grid(True, alpha=0.4, linewidth=0.8)
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE-1, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2)
+        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_facecolor("white")
+        plt.tight_layout()
         if path is None:
             plt.show()
         else:
@@ -283,8 +326,9 @@ class ModelDiagnostics:
             samples = many_samples[i]
             ax.hist(samples[:,parameter_component_index], bins=bins, density=True, alpha=0.6, color="green")
             ax.set_xlim(x_min, x_max)
-            ax.axvline(true_parameter[parameter_component_index], color="red", linestyle="--", linewidth=2)
-            ax.tick_params(labelsize=TICK_FONTSIZE)
+            ax.axvline(true_parameter[parameter_component_index], color="red", linestyle="--", linewidth=2.5)
+            ax.tick_params(labelsize=TICK_FONTSIZE-10)
+            ax.set_xlabel(f"$C_9$", fontsize=AXIS_FONTSIZE-4, labelpad=0)
             ax.grid(True, alpha=0.3)
         # Hide unused axes
         for j in range(n_plots, n_plots):
@@ -294,7 +338,7 @@ class ModelDiagnostics:
             plt.Line2D([], [], color="green", alpha=0.6, linewidth=8, label="posterior"),
             plt.Line2D([], [], color="red", linestyle="--", linewidth=2, label="True value"),
         ]
-        fig.legend(handles=handles, loc="upper center", ncol=2, fontsize=LEGEND_FONTSIZE, frameon=False)
+        #fig.legend(handles=handles, loc="upper center", ncol=2, fontsize=LEGEND_FONTSIZE, frameon=False)
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         if path is None:
             fig.show()
@@ -343,12 +387,15 @@ class ModelDiagnostics:
             drift = torch.norm(mean_delta - mean_ref).item()
             estimator_drifts.append(drift)
 
-        def _plot(y, ylabel, path : Path | None):
-            plt.figure(figsize=(5, 3))
-            plt.plot(deltas, y, marker="o")
-            plt.xlabel(r"Noise amplitude $\delta$")
-            plt.ylabel(ylabel)
-            plt.grid(alpha=0.3)
+        def _plot(y, ylabel, path: Path | None):
+            plt.figure(figsize=(5.5, 4))
+            plt.plot(deltas, y, marker="o", color=RED_COLOR, linewidth=2.2, markersize=5)
+            ax = plt.gca()
+            ax.set_xlabel(r"Noise amplitude $\delta$", fontsize=AXIS_FONTSIZE, labelpad=0)
+            ax.set_ylabel(ylabel, fontsize=AXIS_FONTSIZE, labelpad=0)
+            ax.tick_params(axis="both", which="major", labelsize=TICK_FONTSIZE - 2, width=1.2)
+            ax.locator_params(nbins=4)
+            ax.grid(True, alpha=0.4, linewidth=0.8)
             plt.tight_layout()
             if path is None:
                 plt.show()
@@ -422,12 +469,15 @@ class ModelDiagnostics:
             drift = torch.norm(mean_n - mean_ref).item()
             estimator_drifts.append(drift)
 
-        def _plot(y, ylabel, path : Path | None):
-            plt.figure(figsize=(5, 3))
-            plt.plot(n_list, y, marker="o")
-            plt.xlabel(r"$n_\mathrm{points}$")
-            plt.ylabel(ylabel)
-            plt.grid(alpha=0.3)
+        def _plot(y, ylabel, path: Path | None):
+            plt.figure(figsize=(5.5, 4))
+            plt.plot(n_list, y, marker="o", color=RED_COLOR, linewidth=2.2, markersize=5)
+            ax = plt.gca()
+            ax.set_xlabel(r"$N_e$", fontsize=AXIS_FONTSIZE, labelpad=0) # n_\mathrm{points}
+            ax.set_ylabel(ylabel, fontsize=AXIS_FONTSIZE, labelpad=0)
+            ax.tick_params(axis="both", which="major", labelsize=TICK_FONTSIZE - 2, width=1.2)
+            ax.locator_params(nbins=4)
+            ax.grid(True, alpha=0.4, linewidth=0.8)
             plt.tight_layout()
             if path is None:
                 plt.show()
@@ -460,25 +510,26 @@ class ModelDiagnostics:
         parameters = model.normalizer.normalize_parameters(raw_parameters[:,:model.n_points])
         real_data = model.normalizer.normalize_data(real_raw_data[:model.n_points])
 
-        ModelDiagnostics.expected_coverage_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "ect.pdf")
+        #ModelDiagnostics.expected_coverage_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "ect.pdf")
 
-        ModelDiagnostics.tarp_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "tarp.pdf")
+        #ModelDiagnostics.tarp_test(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "tarp.pdf")
 
                     #ModelDiagnostics.misspecification_test_mmd(data[-50:-2], x_o=real_data, path=subdirectory / "miss_mmd.pdf")
 
-        ModelDiagnostics.misspecification_test_mmd(data[-1000:-2], x_o=real_data, path=subdirectory / "miss_mmd_embedding.pdf", model=model)
+        #ModelDiagnostics.misspecification_test_mmd(data[-1000:-2], x_o=real_data, path=subdirectory / "miss_mmd_embedding.pdf", model=model)
 
-        RealData.plot_real_data_posterior(model, real_data, path=subdirectory / "real_posterior.pdf", n_samples=num_posterior_samples)
+        #RealData.plot_real_data_posterior(model, real_data, path=subdirectory / "real_posterior.pdf", n_samples=num_posterior_samples)
 
-        RealData.calculate_best_estimator(model=model, path_real_data=REAL_DATA, n_parameters=1000, n_subsamples=200, sample_with_replacement=False, path=subdirectory)
+        #ModelDiagnostics.many_posteriors(model, true_parameters=parameters[-50:], observed_samples=data[-50:], parameter_component_index=0, x_min=3, x_max=5, path=subdirectory / "many.pdf", n_cols=4, n_rows=4) # component 0 of the parameters (C_9)
 
-        ModelDiagnostics.many_posteriors(model, true_parameters=parameters[-50:], observed_samples=data[-50:], parameter_component_index=0, x_min=3, x_max=5, path=subdirectory / "many.pdf") # component 0 of the parameters (C_9)
-
-        ModelDiagnostics.simulation_based_calibration(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "sbc.pdf")
+        #ModelDiagnostics.simulation_based_calibration(model, data[:200], parameters[:200], num_posterior_samples=num_posterior_samples, path=subdirectory / "sbc.pdf")
+        
+        #ModelDiagnostics.robustness_to_npoints(model, x_o_raw=raw_data[-100:,:model.n_points], n_posterior_samples=num_posterior_samples, use_random_subsample=False, number_of_ns=20, path = subdirectory / "npoints")
 
         deltas = np.linspace(0.0, 0.3, 15).tolist()
-        ModelDiagnostics.robustness_to_noise(model, x_o_raw=raw_data[-100:,:model.n_points], n_posterior_samples=num_posterior_samples, deltas=deltas, path = subdirectory / "noise")
 
-        ModelDiagnostics.robustness_to_npoints(model, x_o_raw=raw_data[-100:,:model.n_points], n_posterior_samples=num_posterior_samples, use_random_subsample=False, number_of_ns=20, path = subdirectory / "npoints")
+        #ModelDiagnostics.robustness_to_noise(model, x_o_raw=raw_data[-100:,:model.n_points], n_posterior_samples=num_posterior_samples, deltas=deltas, path = subdirectory / "noise")
         
-        ModelDiagnostics.posterior_predictive_checks(model, x_o=data[-1], n_samples=200, n_points=model.n_points, path=subdirectory/ "ppc.pdf")
+        RealData.calculate_best_estimator(model=model, path_real_data=REAL_DATA, n_parameters=1000, n_subsamples=200, sample_with_replacement=False, path=subdirectory)
+        
+        ##ModelDiagnostics.posterior_predictive_checks(model, x_o=data[-1], n_samples=200, n_points=model.n_points, path=subdirectory/ "ppc.pdf")

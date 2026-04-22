@@ -6,13 +6,13 @@ from sbi_particle_physics.managers.real_data import RealData
 import argparse
 
 # ===== BATCH-SAFE MATPLOTLIB CONFIG =====
-import matplotlib
-matplotlib.use("Agg")
-matplotlib.rcParams.update({
-    "text.usetex": False,
-    "font.family": "sans-serif",
-    "font.sans-serif": ["DejaVu Sans"],
-})
+#import matplotlib
+#matplotlib.use("Agg")
+#matplotlib.rcParams.update({
+#    "text.usetex": False,
+#    "font.family": "sans-serif",
+#    "font.sans-serif": ["DejaVu Sans"],
+#})
 # =======================================
 
 def main():

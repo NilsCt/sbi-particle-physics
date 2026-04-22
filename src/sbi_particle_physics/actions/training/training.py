@@ -5,13 +5,13 @@ from sbi_particle_physics.managers.model_diagnostics import ModelDiagnostics
 import argparse
 
 # ===== BATCH-SAFE MATPLOTLIB CONFIG =====
-import matplotlib
-matplotlib.use("Agg")
-matplotlib.rcParams.update({
-    "text.usetex": False,
-    "font.family": "sans-serif",
-    "font.sans-serif": ["DejaVu Sans"],
-})
+#import matplotlib
+#matplotlib.use("Agg")
+#matplotlib.rcParams.update({
+#    "text.usetex": False,
+#    "font.family": "sans-serif",#
+   # "font.sans-serif": ["DejaVu Sans"],
+#})
 # =======================================
 
 def main():
@@ -137,6 +137,14 @@ def main():
 # 380 : 1000 samples, 1.5k points, many backup files ...
 
 # 400s final version
+
+# report
+# 500 : ideal data, 1500 samples, 10k points
+# 501 : imperfect data, 1500 samples, 10k points
+# 502 : imperfect data, 1500 samples, 10k points
+# 503 : imperfect data, 1500 samples, 10k points
+# 504 : ideal data, 1500 samples, 10k points
+# 505 : like 364 : imperfect 1000 samples, 10k points, 20 NSF layers
 
 # nice -n 19 nohup python -m sbi_particle_physics.actions.training.training --training-id 300 --data-dir data_7 --device cpu --use-imperfections True --max-files 30 --points-per-sample 10000 &
 # nice -n 19 nohup python -m sbi_particle_physics.actions.resume_training.resume_training --training-id 339 --device cpu &

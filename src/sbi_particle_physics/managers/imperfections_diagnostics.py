@@ -10,7 +10,10 @@ from sbi_particle_physics.config import (
     TICK_FONTSIZE,
     LEGEND_FONTSIZE,
     PLOTS_DIR,
-    C9
+    C9,
+    RED_COLOR,
+    BLUE_COLOR,
+    GREEN_COLOR
 )
 from sbi_particle_physics.objects.model import Model
 
@@ -26,22 +29,25 @@ class ImperfectionsDiagnostics:
 
     @staticmethod
     def _style_ax(ax, xlabel, ylabel="Density"):
-        ax.set_xlabel(xlabel, fontsize=AXIS_FONTSIZE)
-        ax.set_ylabel(ylabel, fontsize=AXIS_FONTSIZE)
-        ax.tick_params(axis="both", labelsize=TICK_FONTSIZE)
+        ax.set_xlabel(xlabel, fontsize=AXIS_FONTSIZE+3)
+        ax.set_ylabel(ylabel, fontsize=AXIS_FONTSIZE+3)
+        ax.tick_params(axis="both", labelsize=TICK_FONTSIZE-1)
         ax.grid(alpha=0.3)
 
     @staticmethod
-    def _hist(ax, x, bins, range_, label=None, density=True, lw=2):
-        ax.hist(x, bins=bins, range=range_, histtype="step", density=density, linewidth=lw, label=label)
+    def _hist(ax, x, bins, range_, label=None, density=True, color : str = RED_COLOR, lw=2):
+        ax.hist(x, bins=bins, range=range_, histtype="step", density=density, linewidth=lw, label=label, color=color)
 
     @staticmethod
     def _plot_observables(datasets: dict[str, Tensor], bins: int = 30, q2_bin: tuple[float, float] | None = None, density: bool = True):
         n_obs = len(ImperfectionsDiagnostics.OBSERVABLES)
         fig, axes = plt.subplots(1, n_obs, figsize=(4.5 * n_obs, 4), constrained_layout=True)
+        colors = [RED_COLOR, BLUE_COLOR, GREEN_COLOR]
+        colors = ["blue", "red", "green"]
         if n_obs == 1:
             axes = [axes]
 
+        j = 0
         for label, data in datasets.items():
             data = data.detach().cpu().numpy()
             if q2_bin is not None:
@@ -52,14 +58,71 @@ class ImperfectionsDiagnostics:
             for i, (_, xlabel, default_range) in enumerate(ImperfectionsDiagnostics.OBSERVABLES):
                 values = data[:, i]
                 range_ = default_range if default_range is not None else (values.min(), values.max())
-                ImperfectionsDiagnostics._hist(axes[i], values, bins=bins, range_=range_, label=label, density=density)
-
+                ImperfectionsDiagnostics._hist(axes[i], values, bins=bins, range_=range_, label=label, density=density, color=colors[j % len(colors)], lw=2.5)
+            j += 1
         for i, (_, xlabel, _) in enumerate(ImperfectionsDiagnostics.OBSERVABLES):
             ImperfectionsDiagnostics._style_ax(axes[i], xlabel)
-        axes[0].legend(fontsize=LEGEND_FONTSIZE)
+            if i!= 4: axes[i].legend(fontsize=LEGEND_FONTSIZE+3)
         if q2_bin is not None:
             fig.suptitle(rf"${q2_bin[0]:.1f} < q^2 < {q2_bin[1]:.1f}\ \mathrm{{GeV}}^2$",fontsize=AXIS_FONTSIZE,)
+        plt.savefig(PLOTS_DIR / "viva" / "imperfect.pdf")
         plt.show()
+
+    @staticmethod
+    def _plot_observables_2(
+        datasets: dict[str, Tensor],
+        bins: int = 30,
+        q2_bin: tuple[float, float] | None = None,
+        density: bool = True,
+    ):
+        colors = ["blue", "red", "green"]
+
+        for i, (name, xlabel, default_range) in enumerate(ImperfectionsDiagnostics.OBSERVABLES):
+            fig, ax = plt.subplots(1, 1, figsize=(5.2, 4), constrained_layout=True)
+
+            j = 0
+            for label, data in datasets.items():
+                data = data.detach().cpu().numpy()
+
+                if q2_bin is not None:
+                    q2_min, q2_max = q2_bin
+                    mask = (data[:, 0] > q2_min) & (data[:, 0] < q2_max)
+                    data = data[mask]
+
+                values = data[:, i]
+                range_ = default_range if default_range is not None else (values.min(), values.max())
+                print("rrange ", range_)
+
+                ImperfectionsDiagnostics._hist(
+                    ax,
+                    values,
+                    bins=bins,
+                    range_=range_,
+                    label=label,
+                    density=density,
+                    color=colors[j % len(colors)],
+                    lw=2.5,
+                )
+                j += 1
+
+            ImperfectionsDiagnostics._style_ax(ax, xlabel)
+            if i!= 4: ax.legend(fontsize=LEGEND_FONTSIZE + 3)
+
+            if q2_bin is not None:
+                fig.suptitle(
+                    rf"${q2_bin[0]:.1f} < q^2 < {q2_bin[1]:.1f}\ \mathrm{{GeV}}^2$",
+                    fontsize=AXIS_FONTSIZE,
+                )
+
+            safe_name = name.lower().replace(" ", "_")
+            if q2_bin is None:
+                save_path = PLOTS_DIR / "viva" / f"imperfect_{safe_name}.pdf"
+            else:
+                save_path = PLOTS_DIR / "viva" / f"imperfect_{safe_name}_q2_{q2_bin[0]:.1f}_{q2_bin[1]:.1f}.pdf"
+
+            plt.savefig(save_path)
+            plt.show()
+            plt.close(fig)
 
     @staticmethod
     def compare_datasets(datasets: dict[str, Tensor], bins: int = 30, q2_bin: tuple[float, float] | None = None, density: bool = True):
@@ -67,8 +130,8 @@ class ImperfectionsDiagnostics:
 
     @staticmethod
     def compare_real_vs_simulated(x_real: Tensor, x_sim: Tensor, q2_bin: tuple[float, float] | None = None, bins: int = 30):
-        datasets = {"LHCb data": x_real, "Simulation": x_sim}
-        ImperfectionsDiagnostics._plot_observables(datasets, bins=bins, q2_bin=q2_bin)
+        datasets = {"Toy data": x_real, "Simulation": x_sim}
+        ImperfectionsDiagnostics._plot_observables_2(datasets, bins=bins, q2_bin=q2_bin)
 
     @staticmethod
     def compare_real_vs_simulated_vs_accepted(x_real: Tensor, x_sim: Tensor, x_acc: Tensor, q2_bin: tuple[float, float] | None = None, bins: int = 30,):

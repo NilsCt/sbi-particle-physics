@@ -4,7 +4,7 @@ from torch import Tensor
 from pathlib import Path
 import uproot
 import awkward as ak
-from sbi_particle_physics.config import REAL_DATA_FILE_PATTERN, TREE_NAME, BRANCHES, MKPI, MKPI_DELTA, PLOTS_DIR, GREEN_COLOR, AXIS_FONTSIZE, TICK_FONTSIZE, LEGEND_FONTSIZE, PARAMETERS_LABEL, C9, DEFAULT_PRIOR_LOW, DEFAULT_PRIOR_HIGH
+from sbi_particle_physics.config import REAL_DATA_FILE_PATTERN, TREE_NAME, BRANCHES, MKPI, MKPI_DELTA, PLOTS_DIR, GREEN_COLOR, AXIS_FONTSIZE, TICK_FONTSIZE, LEGEND_FONTSIZE, PARAMETERS_LABEL, C9, DEFAULT_PRIOR_LOW, DEFAULT_PRIOR_HIGH, RED_COLOR, BLUE_COLOR, GREEN_COLOR
 import re
 from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
@@ -140,10 +140,10 @@ class RealData:
         fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
         ax.set_xlim(DEFAULT_PRIOR_LOW[0], DEFAULT_PRIOR_HIGH[0])
         ax.hist(sampled_parameters[:,0], bins=40, density=True, alpha=0.8, color=GREEN_COLOR, label="posterior")
-        ax.axvline(C9, color="red", linestyle="--", linewidth=2, label="True value")
+        #ax.axvline(C9, color="red", linestyle="--", linewidth=2, label="True value") todo
         ax.set_xlabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE+8, labelpad=0) # , fontweight='bold'
         ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)  #, fontweight='bold'
-        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.tick_params(labelsize=TICK_FONTSIZE-2, width=1.2)
         ax.locator_params(nbins=4)
         ax.grid(True, alpha=0.4, linewidth=0.8)
         leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
@@ -169,17 +169,17 @@ class RealData:
     @staticmethod
     def _plot_subset_estimates(means: Tensor, sigmas: Tensor, final_mean: float, final_unc: float, path: Path | None = None, true_value: float | None = None) -> None:
         fig, ax = plt.subplots(figsize=(5.5, 4), constrained_layout=True)
-        ax.hist(means.numpy(), bins=30, density=True, alpha=0.8, color=GREEN_COLOR, label="subset estimates")
-        ax.axvline(final_mean, color="black", linestyle="-", linewidth=2, label="final estimate")
-        ax.axvspan(final_mean - final_unc, final_mean + final_unc, alpha=0.20, color="gray", label=r"final $\pm 1\sigma$")
-        if true_value is not None:
-            ax.axvline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
-        ax.set_xlabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE + 8, labelpad=0)
-        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)
-        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.hist(means.numpy(), bins=30, density=True, alpha=0.8, color="green", label="Estimators")
+        ax.axvline(final_mean, color="red", linestyle="-", linewidth=2.5, label="Final estimate")
+        ax.axvspan(final_mean - final_unc, final_mean + final_unc, alpha=0.50, color="red", label=r"Final $\pm 1\sigma$", edgecolor="none", linewidth=0)
+        #if true_value is not None: todo
+        #    ax.axvline(true_value, color=RED_COLOR, linestyle="--", linewidth=2, label="True value")
+        ax.set_xlabel("$C_9$", fontsize=40)
+        ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE)
+        ax.tick_params(labelsize=TICK_FONTSIZE-4, width=1.2)
         ax.locator_params(nbins=4)
         ax.grid(True, alpha=0.4, linewidth=0.8)
-        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE+1, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2)
         leg.get_frame().set_linewidth(0.7)
         leg.get_frame().set_facecolor("white")
         RealData._save_or_show(path)
@@ -188,33 +188,59 @@ class RealData:
     def _plot_subset_errorbars(means: Tensor, sigmas: Tensor, final_mean: float, final_unc: float, path: Path | None = None, true_value: float | None = None) -> None:
         fig, ax = plt.subplots(figsize=(6.0, 4), constrained_layout=True)
         x = torch.arange(len(means)).numpy()
-        ax.errorbar(x, means.numpy(), yerr=sigmas.numpy(), fmt="o", alpha=0.75, markersize=3.5, linewidth=1.0, capsize=2.0, label="subset estimate")
-        ax.axhline(final_mean, color="black", linestyle="-", linewidth=2, label="final estimate")
-        ax.axhspan(final_mean - final_unc, final_mean + final_unc, alpha=0.20, color="gray", label=r"final $\pm 1\sigma$")
-        if true_value is not None:
-            ax.axhline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
-        ax.set_xlabel("Random subset index", fontsize=AXIS_FONTSIZE, labelpad=0)
-        ax.set_ylabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE + 5, labelpad=0)
-        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+
+        ax.errorbar(
+            x,
+            means.numpy(),
+            yerr=sigmas.numpy(),
+            fmt="o",
+            alpha=0.45,
+            markersize=5,
+            linewidth=1.5,
+            capsize=4.0,
+            label="Estimators",
+            color="blue",
+        )
+        ax.axhline(final_mean, color="black", linestyle="-", linewidth=1.5, label="Final estimate")
+        ax.axhspan(final_mean - final_unc, final_mean + final_unc, alpha=0.50, color="black", label=r"Final $\pm 1\sigma$", edgecolor="none", linewidth=0)
+
+        #if true_value is not None:
+        #    ax.axhline(true_value, color="red", linestyle="--", linewidth=2.5, label="True value")
+
+        ax.set_xlabel("Index", fontsize=AXIS_FONTSIZE)
+        ax.set_ylabel("$C_9$", fontsize=40)
+        ax.tick_params(labelsize=TICK_FONTSIZE - 4, width=1.2)
         ax.grid(True, alpha=0.4, linewidth=0.8)
-        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="best")
+
+        leg = ax.legend(
+            fontsize=LEGEND_FONTSIZE,
+            frameon=True,
+            framealpha=0.55,
+            handlelength=1.3,
+            handleheight=0.6,
+            handletextpad=0.4,
+            borderpad=0.3,
+            labelspacing=0.2,
+            loc="best",
+        )
         leg.get_frame().set_linewidth(0.7)
         leg.get_frame().set_facecolor("white")
+
         RealData._save_or_show(path)
 
     @staticmethod
     def _plot_pulls(pulls: Tensor, path: Path | None = None) -> None:
         fig, ax = plt.subplots(figsize=(5.5, 4), constrained_layout=True)
         ax.hist(pulls.numpy(), bins=30, density=True, alpha=0.8, color=GREEN_COLOR, label="pulls")
-        ax.axvline(0.0, color="black", linestyle="-", linewidth=2, label="0")
-        ax.axvline(1.0, color="gray", linestyle="--", linewidth=1.5)
-        ax.axvline(-1.0, color="gray", linestyle="--", linewidth=1.5)
+        #ax.axvline(0.0, color=RED_COLOR, linestyle="-", linewidth=2, label="0")
+        ax.axvline(1.0, color="black", linestyle="--", linewidth=1.5, label=r"$\pm 1 \sigma$")
+        ax.axvline(-1.0, color="black", linestyle="--", linewidth=1.5)
         ax.set_xlabel(r"$(\hat{\theta}_i - \hat{\theta}_{\mathrm{final}})/\sigma_i$", fontsize=AXIS_FONTSIZE, labelpad=0)
         ax.set_ylabel("Density", fontsize=AXIS_FONTSIZE, labelpad=0)
-        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.tick_params(labelsize=TICK_FONTSIZE-3, width=1.2)
         ax.locator_params(nbins=4)
         ax.grid(True, alpha=0.4, linewidth=0.8)
-        leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
+        leg = ax.legend(fontsize=LEGEND_FONTSIZE+2, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="upper left")
         leg.get_frame().set_linewidth(0.7)
         leg.get_frame().set_facecolor("white")
         RealData._save_or_show(path)
@@ -261,19 +287,20 @@ class RealData:
         x = torch.arange(1, len(means) + 1).numpy()
 
         fig, ax = plt.subplots(figsize=(6.0, 4), constrained_layout=True)
-        ax.plot(x, cumulative_mean.numpy(), linewidth=2, label="cumulative estimate")
+        ax.plot(x, cumulative_mean.numpy(), linewidth=2.5, label="Cumulative estimate", color="blue")
         ax.fill_between(
             x,
             (cumulative_mean - cumulative_unc).numpy(),
             (cumulative_mean + cumulative_unc).numpy(),
             alpha=0.20,
-            label=r"cumulative $\pm 1\sigma$",
+            label=r"Cumulative $\pm 1\sigma$",
+            color="red"
         )
         if true_value is not None:
-            ax.axhline(true_value, color="red", linestyle="--", linewidth=2, label="True value")
-        ax.set_xlabel("Number of subsets included", fontsize=AXIS_FONTSIZE, labelpad=0)
+            ax.axhline(true_value, color=RED_COLOR, linestyle="--", linewidth=2, label="True value")
+        ax.set_xlabel("Number of subsets included", fontsize=AXIS_FONTSIZE-3, labelpad=0)
         ax.set_ylabel(PARAMETERS_LABEL[0], fontsize=AXIS_FONTSIZE + 5, labelpad=0)
-        ax.tick_params(labelsize=TICK_FONTSIZE, width=1.2)
+        ax.tick_params(labelsize=TICK_FONTSIZE-4, width=1.2)
         ax.grid(True, alpha=0.4, linewidth=0.8)
         leg = ax.legend(fontsize=LEGEND_FONTSIZE, frameon=True, framealpha=0.55, handlelength=1.3, handleheight=0.6, handletextpad=0.4, borderpad=0.3, labelspacing=0.2, loc="best")
         leg.get_frame().set_linewidth(0.7)
