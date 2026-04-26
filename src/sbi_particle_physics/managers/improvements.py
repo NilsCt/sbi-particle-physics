@@ -47,29 +47,87 @@ class Improvements:
     """
 
     @staticmethod
-    def _plot_width_by(x_values: np.ndarray | list, width: np.ndarray | list, x_label: str, curve_label : str, also_x_log : bool = True, no_line : bool = False) -> tuple[plt.Figure, plt.Axes, np.ndarray, np.ndarray]:
+    def _plot_width_by(
+        x_values: np.ndarray | list,
+        width: np.ndarray | list,
+        x_label: str,
+        curve_label: str,
+        also_x_log: bool = True,
+        no_line: bool = False
+    ) -> tuple[plt.Figure, plt.Axes, np.ndarray, np.ndarray]:
+
+        from matplotlib.ticker import LogLocator, ScalarFormatter
+
         x_values = np.array(x_values, dtype=float)
         width = np.array(width, dtype=float)
+
         order = np.argsort(x_values)
         x_values = x_values[order]
         width = width[order]
-        fig, ax = plt.subplots(figsize=(5.5,4), constrained_layout=True)
+
+        # ❗ taille inchangée
+        fig, ax = plt.subplots(figsize=(5.5, 4), constrained_layout=True)
+
         linestyle = "" if no_line else "-"
-        ax.plot(x_values, width, marker="o", linestyle=linestyle, label=curve_label, linewidth=2.2, color=BLUE_COLOR)
-        if also_x_log: ax.set_xscale("log")
+        ax.plot(
+            x_values,
+            width,
+            marker="o",
+            linestyle=linestyle,
+            label=curve_label,
+            linewidth=2.2,
+            color=BLUE_COLOR,
+        )
+
+        if also_x_log:
+            ax.set_xscale("log")
+
         ax.set_yscale("log")
-        ax.set_xlabel(x_label, fontsize=AXIS_FONTSIZE+6, labelpad=0) # , fontweight='bold'
-        ax.set_ylabel("$\\langle \\sigma \\rangle$", fontsize=AXIS_FONTSIZE+4, labelpad=0) # , fontweight='bold'
-        #ax.yaxis.set_major_locator(LogLocator(base=10.0, subs=(1.0, 2.0, 5.0)))
-        ax.tick_params(labelsize=TICK_FONTSIZE-2, width=1.2)
+
+        ax.set_xlabel(x_label, fontsize=AXIS_FONTSIZE + 6, labelpad=0)
+        ax.set_ylabel(r"$\langle \sigma \rangle$", fontsize=AXIS_FONTSIZE + 4, labelpad=0)
+
+        # --- Y axis: scientific notation like 10^-2 on top ---
+        ax.yaxis.set_major_locator(LogLocator(base=10.0, subs=(1,2,3)))
+        ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=[]))
+
+        formatter = ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        #formatter.set_powerlimits((-2, -2))  # force 10^-2 style
+        ax.yaxis.set_major_formatter(formatter)
+
+        # --- ticks: all same size ---
+        ax.tick_params(
+            axis="y",
+            which="both",
+            labelsize=TICK_FONTSIZE - 2,
+            width=1.2,
+            length=6,
+        )
+
+        ax.tick_params(
+            axis="x",
+            which="both",
+            labelsize=TICK_FONTSIZE - 2,
+            width=1.2,
+            length=6,
+        )
+
+        # taille du "10^-2"
+        ax.yaxis.get_offset_text().set_fontsize(TICK_FONTSIZE - 2)
+
         ax.grid(True, alpha=0.4, linewidth=0.8)
-        leg = ax.legend(fontsize=LEGEND_FONTSIZE+2, frameon=True, framealpha=0.55, borderpad=0.4, labelspacing=0.3)
+
+        leg = ax.legend(
+            fontsize=LEGEND_FONTSIZE + 2,
+            frameon=True,
+            framealpha=0.55,
+            borderpad=0.4,
+            labelspacing=0.3,
+        )
         leg.get_frame().set_linewidth(0.7)
-        leg.get_frame().set_facecolor('white')
-        ax.yaxis.set_major_locator(LogLocator(base=10))
-        ax.yaxis.set_minor_locator(LogLocator(base=10, subs=(2, 3, 5)))
-        ax.tick_params(axis="y", which="major", width=1.2, labelsize=TICK_FONTSIZE-2, length=6)
-        ax.tick_params(axis="y", which="minor", width=1.2, labelsize=TICK_FONTSIZE-6, length=6)
+        leg.get_frame().set_facecolor("white")
+
         return fig, ax, x_values, width
     
     @staticmethod
@@ -348,6 +406,7 @@ class Improvements:
         Improvements._bar_plot(model_names, avg_entropies, r"Posterior entropy") # lower is better
         Improvements._bar_plot(model_names, robust_cv, r"CV of posterior widths") # robust should be close to 0
         Improvements._bar_plot(model_names, robust_quantile_ratio, r"$q_{84} / q_{16}$ of widths") # robust should be close to 1
+        print(avg_widths)
 
         fig, ax = plt.subplots(figsize=(8, 4)) # Robustness: per-parameter widths
         ax.boxplot(all_widths, labels=model_names, showfliers=False)
@@ -757,13 +816,33 @@ class Improvements:
         plt.figure(fig_shift.number)
         plt.savefig(PLOTS_DIR / "viva" / "drift_by_noise.pdf")
 
+        from matplotlib.ticker import ScalarFormatter
+
         ax_width.set_xlabel(r"Noise amplitude $\delta$", fontsize=AXIS_FONTSIZE)
         ax_width.set_ylabel(
             r"$\langle \sigma(\delta) \rangle$",
             fontsize=AXIS_FONTSIZE,
         )
-        ax_width.tick_params(labelsize=TICK_FONTSIZE - 6, width=1.2)
+
+        # Scientific notation on y-axis, with the power shown above the axis
+        formatter = ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-2, -2))  # force 10^{-2}
+        ax_width.yaxis.set_major_formatter(formatter)
+
+        # Same size for all ticks
+        ax_width.tick_params(
+            axis="both",
+            which="both",
+            labelsize=TICK_FONTSIZE - 2,
+            width=1.2,
+            length=6,
+        )
+
+        ax_width.yaxis.get_offset_text().set_fontsize(TICK_FONTSIZE - 2)
+
         ax_width.grid(True, alpha=0.35, linewidth=0.8)
+
         leg = ax_width.legend(
             fontsize=LEGEND_FONTSIZE + 3,
             frameon=True,
@@ -776,6 +855,7 @@ class Improvements:
         )
         leg.get_frame().set_linewidth(0.7)
         leg.get_frame().set_facecolor("white")
+
         fig_width.tight_layout()
         plt.figure(fig_width.number)
         plt.savefig(PLOTS_DIR / "viva" / "width_by_noise.pdf")
@@ -820,20 +900,9 @@ class Improvements:
     ):
         """
         Robustness diagnostic under a reduction of the number of observed points.
-
-        For each model:
-        - build a clean reference estimator using all available observed points N_max
-        - for each reduced number of observed points n, pad the remaining points with NaNs
-        - infer posterior samples and compute:
-                (1) mean absolute shift:
-                    < |theta_hat(n) - theta_hat(N_max)| >
-                (2) mean posterior uncertainty:
-                    < sigma(n) >
-                (3) mean standardized shift:
-                    < |theta_hat(n) - theta_hat(N_max)| / sigma(N_max) >
         """
 
-        from matplotlib.ticker import LogLocator
+        from matplotlib.ticker import LogLocator, ScalarFormatter
 
         n_reference_repeats = 4
         n_config_repeats = 2
@@ -847,8 +916,8 @@ class Improvements:
                 posterior = model.draw_parameters_from_predicted_posterior(
                     x_input, n_parameters=n_samples
                 )
-                mean, _ = Predictions.calculate_estimator(posterior)  # [B]
-                width = Predictions._uncertainty(posterior)           # [B]
+                mean, _ = Predictions.calculate_estimator(posterior)
+                width = Predictions._uncertainty(posterior)
                 means.append(mean)
                 widths.append(width)
 
@@ -1020,16 +1089,35 @@ class Improvements:
             r"$\langle \sigma(N_e) \rangle$",
             fontsize=AXIS_FONTSIZE,
         )
+
+        # Log y-axis, but display labels as 1, 2, 3... with 10^{-2} shown above the axis
         ax_width.set_yscale("log")
+        ax_width.yaxis.set_major_locator(LogLocator(base=10.0, subs=np.arange(1, 10)))
+        ax_width.yaxis.set_minor_locator(LogLocator(base=10.0, subs=[]))
 
-        # Major/minor ticks on log y-axis, with same size/thickness
-        ax_width.yaxis.set_major_locator(LogLocator(base=10))
-        #ax_width.yaxis.set_minor_locator(LogLocator(base=10, subs=(2, 5)))
-        ax_width.tick_params(axis="y", which="major", labelsize=TICK_FONTSIZE - 4, width=1.2, length=6)
-        ax_width.tick_params(axis="y", which="minor", width=1.2, length=6, labelsize=TICK_FONTSIZE - 4)
+        formatter = ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-2, -2))  # force x10^{-2}
+        ax_width.yaxis.set_major_formatter(formatter)
 
-        # x-axis ticks same as noise_fixed
-        ax_width.tick_params(axis="x", which="major", labelsize=TICK_FONTSIZE - 2, width=1.2)
+        # Make all y tick labels and tick marks the same size
+        ax_width.tick_params(
+            axis="y",
+            which="both",
+            labelsize=TICK_FONTSIZE - 4,
+            width=1.2,
+            length=6,
+        )
+
+        ax_width.tick_params(
+            axis="x",
+            which="both",
+            labelsize=TICK_FONTSIZE - 2,
+            width=1.2,
+            length=6,
+        )
+
+        ax_width.yaxis.get_offset_text().set_fontsize(TICK_FONTSIZE - 4)
 
         ax_width.grid(True, alpha=0.35, linewidth=0.8, which="both")
         leg = ax_width.legend(
@@ -1102,7 +1190,6 @@ class Improvements:
             empirical coverage vs nominal level
         - The diagonal corresponds to perfect calibration.
         """
-
         def empirical_coverage_from_ranks(
             ranks: Tensor,
             num_posterior_samples: int,

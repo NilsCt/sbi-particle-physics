@@ -106,7 +106,7 @@ class ImperfectionsDiagnostics:
                 j += 1
 
             ImperfectionsDiagnostics._style_ax(ax, xlabel)
-            if i!= 4: ax.legend(fontsize=LEGEND_FONTSIZE + 3)
+            if i!= 4: ax.legend(fontsize=LEGEND_FONTSIZE + 6)
 
             if q2_bin is not None:
                 fig.suptitle(

@@ -79,24 +79,25 @@ class DataDiagnostics:
         d, max_lag = mean_ac.shape
         for i in range(d):
             plt.figure(figsize=(6,4))
-            plt.plot(mean_ac[i,0:lag_zoom], label="Mean", color=RED_COLOR, linewidth=2.5)
-            plt.fill_between(
-                range(max_lag)[0:lag_zoom],
-                mean_ac[i,0:lag_zoom] - std_ac[i,0:lag_zoom],
-                mean_ac[i,0:lag_zoom] + std_ac[i,0:lag_zoom],
-                alpha=0.3,
-                color=RED_COLOR,
-                label="$1\sigma$"
-            )
+            plt.plot(mean_ac[i,0:lag_zoom], label="Mean", color=RED_COLOR, linewidth=1.5, linestyle="--", marker="+", markersize=10, markerfacecolor="black", markeredgecolor="black", markeredgewidth=2)
+            # plt.fill_between(
+            #    range(max_lag)[0:lag_zoom],
+            #    mean_ac[i,0:lag_zoom] - std_ac[i,0:lag_zoom],
+            #    mean_ac[i,0:lag_zoom] + std_ac[i,0:lag_zoom],
+            #    alpha=0.3,
+            #    color=RED_COLOR,
+            #    label="$1\sigma$"
+            #)
             #plt.axhline(0, color="black", lw=0.5)
             #plt.title(ENCODED_DATA_LABELS[i], fontsize=AXIS_FONTSIZE)
-            plt.xlabel("Lag $k$", fontsize=AXIS_FONTSIZE+2)
-            plt.ylabel("Correlation $q^2$", fontsize=AXIS_FONTSIZE+2)
+            plt.xlabel("Lag $k$", fontsize=AXIS_FONTSIZE)
+            plt.ylabel("Correlation", fontsize=AXIS_FONTSIZE)
             plt.gca().tick_params(axis='both', labelsize=TICK_FONTSIZE-5)
             plt.grid(alpha=0.3)
-            plt.legend(fontsize=LEGEND_FONTSIZE+7)
+            #plt.legend(fontsize=LEGEND_FONTSIZE+7)
             plt.savefig(PLOTS_DIR / "viva" / "autocorr_{}.pdf".format(ENCODED_DATA_LABELS[i]))
             plt.show()
+            
 
         ess_per_obs = [
             DataDiagnostics._ess_from_autocorr(mean_ac[i], n_points=data.shape[1]).item()
@@ -109,3 +110,4 @@ class DataDiagnostics:
         print("ESS min", ess_min)
         print("ESS's", ess_per_obs)
         print("Decorrelation lag", decorrelation_lag)
+        print(mean_ac[0,0:lag_zoom])
